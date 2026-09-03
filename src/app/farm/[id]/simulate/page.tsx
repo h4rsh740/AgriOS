@@ -1,10 +1,11 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { SlidersHorizontal, Info, ArrowRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { SimulationComparison } from '@/types';
 import Link from 'next/link';
+import { useFarmContext } from '@/hooks/useFarmContext';
 
 const DEMO_SIMULATION: SimulationComparison = {
   farmId: 'demo-farm-001',
@@ -36,9 +37,15 @@ const DEMO_SIMULATION: SimulationComparison = {
 const SCENARIO_COLORS = { current: '#9CA3AF', water_saving: '#38BDF8', regenerative: '#2D9B5A' };
 const SCENARIO_BORDER_COLORS = { current: '#D1D5DB', water_saving: '#0EA5E9', regenerative: '#16a34a' };
 
-export default function SimulatorPage() {
+export default function SimulatorPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx } = useFarmContext(farmId);
   const [simulation] = useState<SimulationComparison>(DEMO_SIMULATION);
   const [selected, setSelected] = useState<string | null>(null);
+
+  const farmDesc = ctx
+    ? `${ctx.farm.crop} · ${ctx.farm.cropStage} · ${ctx.farm.areaHa}ha`
+    : 'Wheat · Vegetative · 2.4ha';
 
   const radarData = ['Water Efficiency', 'Cost', 'Resilience', 'Soil Health', 'Yield', 'Risk'].map(metric => {
     const entry: Record<string, unknown> = { metric };
@@ -62,7 +69,7 @@ export default function SimulatorPage() {
           <h2 style={{ margin: 0 }}>What-If Farm Simulator</h2>
         </div>
         <p style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '0.875rem' }}>
-          Compare farming strategies before committing. Farm context: Wheat · Vegetative · 2.4ha
+          Compare farming strategies before committing. Farm context: {farmDesc}
         </p>
 
         {/* Disclaimer */}

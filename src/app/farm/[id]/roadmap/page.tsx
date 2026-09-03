@@ -1,8 +1,9 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
-import { useState } from 'react';
-import { MapPin, Info, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { useState, use } from 'react';
+import { MapPin, Info, Check, AlertTriangle, Loader2, Database, Wifi } from 'lucide-react';
 import { RegenerativeRoadmap, RoadmapAction } from '@/types';
+import { useFarmContext } from '@/hooks/useFarmContext';
 
 const PHASE_COLORS = ['var(--agrios-sky-600)', 'var(--agrios-green-500)', 'var(--agrios-soil-500)'];
 const CATEGORY_COLORS: Record<string, string> = {
@@ -106,24 +107,23 @@ const DEMO_ROADMAP: RegenerativeRoadmap = {
   disclaimer: 'AI-generated regenerative roadmap. Review with a qualified local agronomist before making major investments. Outcomes vary significantly by location, soil type, and implementation quality.',
 };
 
-export default function RoadmapPage() {
+export default function RoadmapPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx, loading: ctxLoading } = useFarmContext(farmId);
   const [roadmap, setRoadmap] = useState<RegenerativeRoadmap>(DEMO_ROADMAP);
   const [generating, setGenerating] = useState(false);
+  const [isLive, setIsLive] = useState(false);
 
   async function handleGenerate() {
+    if (!ctx) return;
     setGenerating(true);
     try {
       const res = await fetch('/api/regenerative/roadmap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          farm: { id: 'demo-farm-001', name: 'Demo Farm', crop: 'Wheat', cropStage: 'vegetative', areaHa: 2.4, farmingPractice: 'conventional', irrigationType: 'drip', location: { state: 'Uttar Pradesh', country: 'India', lat: 26.85, lng: 80.95 } },
-          soil: { ph: 7.8, organicCarbon: 0.48 },
-          weather: { risks: { diseaseRisk: 'high', irrigationStress: 'low' } },
-          satellite: { ndvi: 0.58, trend: 'stable' },
-        }),
+        body: JSON.stringify(ctx),
       });
-      if (res.ok) { const data = await res.json(); setRoadmap(data); }
+      if (res.ok) { const data = await res.json(); setRoadmap(data); setIsLive(true); }
     } catch { /* use demo */ } finally { setGenerating(false); }
   }
 
@@ -136,8 +136,16 @@ export default function RoadmapPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <MapPin size={22} color="var(--agrios-green-500)" />
             <h2 style={{ margin: 0 }}>90-Day Regenerative Roadmap</h2>
+            {isLive
+              ? <span className="badge" style={{ background: 'var(--agrios-green-100)', color: 'var(--agrios-green-700)', fontSize: '0.7rem' }}><Wifi size={10} /> Live</span>
+              : <span className="badge badge-demo"><Database size={10} /> Demo</span>
+            }
           </div>
-          <button className="btn btn-outline btn-sm" onClick={handleGenerate} disabled={generating}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleGenerate}
+            disabled={generating || ctxLoading || !ctx}
+          >
             {generating ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Generating...</> : '↻ Re-generate with Gemini AI'}
           </button>
         </div>

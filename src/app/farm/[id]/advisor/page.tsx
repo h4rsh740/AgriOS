@@ -1,72 +1,34 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
-import { useState } from 'react';
-import { Zap, Info, ChevronDown, ChevronUp, AlertTriangle, Check, Loader2 } from 'lucide-react';
+import { useState, use } from 'react';
+import { Zap, Info, ChevronDown, ChevronUp, AlertTriangle, Check, Loader2, Database, Wifi } from 'lucide-react';
 import { AIRecommendation } from '@/types';
+import { useFarmContext } from '@/hooks/useFarmContext';
+import { DEMO_RECOMMENDATION } from '@/lib/demo/demoData';
 
-const DEMO_REC: AIRecommendation = {
-  summary: 'Your wheat field in Lucknow shows stable vegetation signal (NDVI 0.58) but elevated humidity (72%) creates moderate disease risk. Rainfall of 8-12mm is expected in 36-48 hours — delay irrigation. Inspect lower leaves tomorrow morning for early fungal symptoms.',
-  riskLevel: 'medium',
-  confidence: 81,
-  evidence: [
-    { source: 'weather', finding: 'Humidity 72% — above 70% disease risk threshold', value: 72 },
-    { source: 'satellite', finding: 'NDVI 0.58 — within normal range for vegetative stage', value: 0.58 },
-    { source: 'weather', finding: '8mm rainfall forecast in 36-48 hours', value: 8 },
-    { source: 'soil', finding: 'pH 7.8 — slightly alkaline, may reduce micronutrient availability', value: 7.8 },
-    { source: 'crop_stage', finding: 'Vegetative stage — dense canopy creates favorable disease microclimate' },
-  ],
-  observations: [
-    'Vegetation signal is stable and within normal range for this growth stage',
-    'High relative humidity creating disease-favorable conditions',
-    'Significant rainfall forecast — irrigation delay recommended',
-    'Soil pH slightly alkaline — monitor for iron/manganese deficiency symptoms',
-  ],
-  recommendations: [
-    'Delay irrigation by 24-36 hours pending rainfall assessment',
-    'Inspect lower canopy for early fungal disease symptoms tomorrow morning',
-    'Monitor drainage after rainfall to prevent waterlogging in low-lying areas',
-    'Consider foliar micronutrient application if yellowing observed',
-  ],
-  actionsToday: [
-    { action: 'Inspect 15-20 representative plants for fungal symptoms', reason: 'High humidity + moderate temperature = disease-favorable conditions', urgency: 'today', effort: 'low' },
-    { action: 'Check and clear field drainage channels', reason: '8-12mm rainfall expected — prevent waterlogging', urgency: 'today', effort: 'low' },
-  ],
-  actionsThisWeek: [
-    { action: 'Reassess irrigation schedule after rainfall settles', reason: 'Avoid over-irrigation and nutrient leaching', urgency: 'this_week', effort: 'low' },
-    { action: 'Monitor NDVI trend — check again in 7 days', reason: 'Rainfall should improve vegetation signal if crop is healthy', urgency: 'this_week', effort: 'low' },
-    { action: 'Test soil for micronutrient status if yellowing appears', reason: 'Alkaline pH can lock out iron, zinc, manganese', urgency: 'this_week', effort: 'medium' },
-  ],
-  regenerativeActions: [
-    { action: 'Plan cover crop for post-harvest soil protection', reason: 'Organic carbon (0.48 g/kg) is low — cover crops rebuild soil biology', urgency: 'this_month', effort: 'medium' },
-    { action: 'Source organic compost for end-of-season application', reason: 'Long-term soil pH correction and organic matter improvement', urgency: 'this_month', effort: 'medium' },
-  ],
-  warnings: ['AI-generated advisory — verify recommendations in field before major decisions', 'Disease risk elevated — do not delay inspection'],
-  needsFieldVerification: true,
-  dataSources: ['Open-Meteo weather (no API key)', 'SoilGrids soil data', 'Sentinel-2 via Google Earth Engine', 'Gemini 2.0 Flash'],
-  disclaimer: 'AI-assisted agricultural assessment. Not a replacement for qualified agronomic advice. Field verification recommended for all major decisions.',
-  generatedAt: new Date().toISOString(),
-};
-
-export default function AdvisorPage() {
-  const [rec, setRec] = useState<AIRecommendation>(DEMO_REC);
+export default function AdvisorPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx, loading: ctxLoading } = useFarmContext(farmId);
+  const [rec, setRec] = useState<AIRecommendation>(DEMO_RECOMMENDATION);
   const [loading, setLoading] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
+  const [isLive, setIsLive] = useState(false);
 
   async function handleRefresh() {
+    if (!ctx) return;
     setLoading(true);
     try {
       const res = await fetch('/api/ai/advisor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          farm: { id: 'demo-farm-001', name: 'Demo Farm', crop: 'Wheat', cropStage: 'vegetative', areaHa: 2.4, farmingPractice: 'conventional', irrigationType: 'drip', location: { state: 'Uttar Pradesh', country: 'India', lat: 26.85, lng: 80.95 } },
-          weather: DEMO_REC,
-          soil: { ph: 7.8, organicCarbon: 0.48, source: 'demo', isDemo: true, fetchedAt: new Date().toISOString() },
-          satellite: { ndvi: 0.58, trend: 'stable', trendValue: -0.02, status: 'healthy', isDemo: true, farmId: 'demo-farm-001', date: new Date().toISOString().split('T')[0], ndviMin: 0.52, ndviMax: 0.64, source: 'GEE' },
-        }),
+        body: JSON.stringify(ctx),
       });
-      if (res.ok) { const data = await res.json(); setRec(data); }
-    } catch { /* use demo */ } finally { setLoading(false); }
+      if (res.ok) {
+        const data = await res.json();
+        setRec(data);
+        setIsLive(true);
+      }
+    } catch { /* keep demo */ } finally { setLoading(false); }
   }
 
   const riskConfig = {
@@ -86,13 +48,26 @@ export default function AdvisorPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Zap size={22} color="var(--agrios-green-500)" />
             <h2 style={{ margin: 0 }}>AI Agricultural Advisor</h2>
+            {isLive
+              ? <span className="badge" style={{ background: 'var(--agrios-green-100)', color: 'var(--agrios-green-700)', fontSize: '0.7rem' }}><Wifi size={10} /> Live</span>
+              : <span className="badge badge-demo"><Database size={10} /> Demo</span>
+            }
           </div>
-          <button className="btn btn-outline btn-sm" onClick={handleRefresh} disabled={loading}>
-            {loading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Analyzing...</> : '↻ Refresh with Gemini AI'}
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleRefresh}
+            disabled={loading || ctxLoading || !ctx}
+            title={!ctx ? 'Loading farm context…' : 'Analyze with Gemini AI'}
+          >
+            {ctxLoading
+              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading context…</>
+              : loading
+              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Analyzing with Gemini…</>
+              : '⚡ Analyze with Gemini AI'}
           </button>
         </div>
         <p style={{ color: 'var(--text-muted)', marginBottom: '28px', fontSize: '0.875rem' }}>
-          Multi-agent Gemini analysis · Evidence-backed · Farm-specific context
+          Multi-agent Gemini analysis · Evidence-backed · Real weather + soil + satellite context
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '20px' }}>
