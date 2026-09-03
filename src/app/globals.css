@@ -1,26 +1,378 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ============================================================
+   AgriOS Design System — Global Styles
+   Palette: Deep Forest Green · Soil Brown · Data Blue
+   ============================================================ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primary Greens */
+  --agrios-green-950: #061a0f;
+  --agrios-green-900: #0a2e1a;
+  --agrios-green-800: #0f4c2a;
+  --agrios-green-700: #1a6b3d;
+  --agrios-green-600: #248b4e;
+  --agrios-green-500: #2d9b5a;
+  --agrios-green-400: #45b872;
+  --agrios-green-300: #5cc98a;
+  --agrios-green-200: #92dfa9;
+  --agrios-green-100: #c6f0d5;
+  --agrios-green-50: #edf8f1;
+
+  /* Soil Browns */
+  --agrios-soil-700: #8b5e3c;
+  --agrios-soil-500: #a97448;
+  --agrios-soil-400: #c49a6c;
+  --agrios-soil-200: #e5c9a6;
+  --agrios-soil-100: #f5ead6;
+  --agrios-soil-50:  #fdf7ee;
+
+  /* Sky / Data Blue */
+  --agrios-sky-600: #0284c7;
+  --agrios-sky-400: #38bdf8;
+  --agrios-sky-100: #e0f2fe;
+
+  /* Status Colors */
+  --agrios-amber-400: #fbbf24;
+  --agrios-amber-100: #fef3c7;
+  --agrios-red-600: #dc2626;
+  --agrios-red-400: #f87171;
+  --agrios-red-100: #fee2e2;
+  --agrios-emerald-400: #34d399;
+
+  /* Surfaces */
+  --surface-base: #faf9f6;
+  --surface-card: #ffffff;
+  --surface-muted: #f4f4f0;
+  --surface-dark: var(--agrios-green-800);
+  --surface-darkest: var(--agrios-green-900);
+
+  /* Text */
+  --text-primary: #111814;
+  --text-secondary: #404941;
+  --text-muted: #717971;
+  --text-inverse: #ffffff;
+  --text-accent: var(--agrios-green-700);
+
+  /* Borders */
+  --border-default: #e0eae2;
+  --border-muted: #eeeeea;
+  --border-accent: var(--agrios-green-400);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-card: 0 0 0 1px var(--border-default), var(--shadow-sm);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* Sidebar */
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ---- Typography Scale ---- */
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); line-height: 1.2; font-weight: 600; }
+h1 { font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.875rem; font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 1.375rem; font-weight: 600; }
+h4 { font-size: 1.125rem; font-weight: 600; }
+h5 { font-size: 1rem; font-weight: 600; }
+p { line-height: 1.7; }
+a { color: var(--agrios-green-700); text-decoration: none; }
+a:hover { color: var(--agrios-green-500); }
+code, pre { font-family: var(--font-mono); }
+
+/* ---- Layout Utilities ---- */
+.container { max-width: 1280px; margin: 0 auto; padding: 0 var(--space-6); }
+.section-pad { padding: var(--space-20) 0; }
+
+/* ---- App Shell ---- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--surface-muted);
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  min-height: 100vh;
+  background: var(--agrios-green-800);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 100;
+  box-shadow: 2px 0 20px rgba(0,0,0,0.15);
+}
+
+.main-area {
+  margin-left: var(--sidebar-width);
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Cards ---- */
+.card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.card-sm { padding: var(--space-4); border-radius: var(--radius-md); }
+.card-dark { background: var(--agrios-green-800); color: var(--text-inverse); border-color: transparent; }
+.card-tinted { background: var(--agrios-green-50); border-color: var(--agrios-green-100); }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-5);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--agrios-green-500);
+  color: white;
+}
+.btn-primary:hover { background: var(--agrios-green-600); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,155,90,0.3); }
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--agrios-green-500);
+  color: var(--agrios-green-700);
+}
+.btn-outline:hover { background: var(--agrios-green-50); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-default);
+}
+.btn-ghost:hover { background: var(--surface-muted); }
+
+.btn-danger {
+  background: var(--agrios-red-600);
+  color: white;
+}
+.btn-danger:hover { background: #b91c1c; }
+
+.btn-sm { padding: 7px 14px; font-size: 0.8rem; }
+.btn-lg { padding: 14px 32px; font-size: 1rem; border-radius: var(--radius-lg); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+/* ---- Badges / Pills ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.badge-green  { background: var(--agrios-green-100); color: var(--agrios-green-700); }
+.badge-amber  { background: var(--agrios-amber-100); color: #92400e; }
+.badge-red    { background: var(--agrios-red-100);   color: var(--agrios-red-600); }
+.badge-blue   { background: var(--agrios-sky-100);   color: var(--agrios-sky-600); }
+.badge-soil   { background: var(--agrios-soil-100);  color: var(--agrios-soil-700); }
+.badge-demo   { background: var(--agrios-amber-100); color: #78350f; border: 1px solid var(--agrios-amber-400); }
+.badge-dark   { background: rgba(255,255,255,0.12); color: var(--agrios-green-200); }
+
+/* ---- Risk / Status Dot ---- */
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dot-green  { background: var(--agrios-green-400); }
+.dot-amber  { background: var(--agrios-amber-400); }
+.dot-red    { background: var(--agrios-red-400); }
+.dot-blue   { background: var(--agrios-sky-400); }
+.dot-pulse  { animation: pulse 2s infinite; }
+
+/* ---- Confidence Bar ---- */
+.confidence-bar { height: 6px; background: var(--surface-muted); border-radius: 3px; overflow: hidden; }
+.confidence-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+/* ---- Form Elements ---- */
+.input, .select, .textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--surface-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--agrios-green-500);
+  box-shadow: 0 0 0 3px rgba(45,155,90,0.12);
+}
+.input::placeholder { color: var(--text-muted); }
+.label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* ---- Section Headers ---- */
+.section-label {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.data-source-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--space-2);
+}
+
+/* ---- Metric Display ---- */
+.metric-value {
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.metric-unit { font-family: var(--font-body); font-size: 0.85rem; color: var(--text-muted); margin-left: 2px; }
+.metric-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+/* ---- Dividers ---- */
+.divider { border: none; border-top: 1px solid var(--border-muted); margin: var(--space-4) 0; }
+
+/* ---- Animations ---- */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-10px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.animate-fade-up  { animation: fadeUp 0.4s ease both; }
+.animate-fade-in  { animation: fadeIn 0.3s ease both; }
+.animate-slide-in { animation: slideIn 0.3s ease both; }
+
+/* ---- AgriMesh Node Pulse ---- */
+.node-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--agrios-green-400);
+  animation: nodePulse 2.5s ease-out infinite;
+}
+@keyframes nodePulse {
+  0%   { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2); }
+}
+
+/* ---- Progress Ring ---- */
+.progress-ring { transform: rotate(-90deg); }
+.progress-ring-bg { fill: none; stroke: var(--border-muted); }
+.progress-ring-fill { fill: none; stroke: var(--agrios-green-500); stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ---- Utility ---- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid-auto-fill { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); }
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main-area { margin-left: 0; }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.375rem; }
+  .card { padding: var(--space-4); }
 }
