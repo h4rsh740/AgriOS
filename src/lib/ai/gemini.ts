@@ -19,7 +19,7 @@ function getClient(): GoogleGenerativeAI {
 
 function getModel(): GenerativeModel {
   if (!_model) {
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     _model = getClient().getGenerativeModel({
       model: modelName,
       generationConfig: {
@@ -47,7 +47,7 @@ export async function generateJSON<T>(prompt: string): Promise<T> {
 }
 
 export async function generateText(prompt: string): Promise<string> {
-  const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+  const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const client = getClient();
   const model = client.getGenerativeModel({
     model: modelName,
@@ -62,7 +62,7 @@ export async function analyzeImageWithContext(
   mimeType: string,
   textPrompt: string
 ): Promise<string> {
-  const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+  const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const client = getClient();
   const model = client.getGenerativeModel({ model: modelName });
 
