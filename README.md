@@ -109,7 +109,8 @@ Every AI output includes:
 
 ## 📄 License
 
-MIT — open source by design. AgriOS is public digital infrastructure.
+
+MIT —  open source by design. AgriOS is public digital infrastructure.
 
 ---
 
