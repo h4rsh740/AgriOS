@@ -2,7 +2,7 @@
 // AgriOS — Demo Data (pre-seeded, realistic, clearly labeled)
 // Used when external APIs are unavailable
 // ============================================================
-import { WeatherData, SoilProfile, SatelliteSnapshot, FarmAlert, RegenerativeScore, Farm, AIRecommendation } from '@/types';
+import type { WeatherData, SoilProfile, SatelliteSnapshot, FarmAlert, RegenerativeScore, Farm, AIRecommendation } from '@/types';
 
 export const DEMO_FARM_ID = 'demo-farm-001';
 

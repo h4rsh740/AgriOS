@@ -1,192 +1,310 @@
 // ============================================================
-// AgriOS — AI Orchestrator
-// Coordinates all 8 specialist agents → Chief Agri Agent
+// AgriOS — Modular AI Agent System & Orchestrator
+// Coordinates 9 domain agents + Chief Agricultural Orchestrator
+// Powered by Google Gemini with strict structured output & safety
 // ============================================================
 import { FarmContext, AIEvidence, AIRecommendation } from '@/types';
-import { generateJSON, AGRI_SYSTEM_PROMPT } from './gemini';
+import { generateJSON, generateText, AGRI_SYSTEM_PROMPT } from './gemini';
+import { getCropAgronomy } from '@/lib/services/agriculture/cropService';
+import { matchFarmerSchemes } from '@/lib/services/agriculture/schemeService';
+
+// ============================================================
+// 1. DOMAIN AGENTS
+// ============================================================
+
+/** Agent 1: Crop Intelligence Agent */
+export function runCropIntelligenceAgent(ctx: FarmContext): AIEvidence[] {
+  const ev: AIEvidence[] = [];
+  const agronomy = getCropAgronomy(ctx.farm.crop);
+
+  ev.push({
+    source: 'crop_stage',
+    finding: `${ctx.farm.crop} is currently at '${ctx.farm.cropStage.replace('_', ' ')}' stage. Season: ${agronomy.season}.`,
+  });
+
+  if (agronomy.criticalStagesForIrrigation.includes(ctx.farm.cropStage)) {
+    ev.push({
+      source: 'crop_stage',
+      finding: `Critical irrigation stage detected for ${ctx.farm.crop}. Water stress now will permanently impact yield.`,
+    });
+  }
+
+  return ev;
+}
+
+/** Agent 2: Weather & Agricultural Risk Agent */
+export function runWeatherAgent(ctx: FarmContext): AIEvidence[] {
+  if (!ctx.weather) return [{ source: 'weather', finding: 'Live weather telemetry not currently available.' }];
+  const ev: AIEvidence[] = [];
+  const { current, risks, forecast } = ctx.weather;
+
+  if (risks.diseaseRisk === 'high' || risks.diseaseRisk === 'critical') {
+    ev.push({
+      source: 'weather',
+      finding: `High humidity (${current.humidity}%) combined with temperature (${current.temperature}°C) creates high microclimate fungal disease pressure.`,
+      value: current.humidity,
+    });
+  }
+
+  if (risks.heatStress !== 'low') {
+    ev.push({
+      source: 'weather',
+      finding: `Heat stress warning: peak daytime temperatures projected to reach ${Math.max(...forecast.slice(0, 3).map(d => d.maxTemp))}°C.`,
+    });
+  }
+
+  const upcomingRain = forecast.slice(0, 3).reduce((s, d) => s + d.precipitation, 0);
+  if (upcomingRain > 5) {
+    ev.push({
+      source: 'weather',
+      finding: `${upcomingRain.toFixed(1)}mm rainfall anticipated within the next 72 hours. Irrigation delay recommended to save water and avoid root waterlogging.`,
+      value: upcomingRain,
+    });
+  }
+
+  return ev;
+}
+
+/** Agent 3: Soil Health Agent */
+export function runSoilHealthAgent(ctx: FarmContext): AIEvidence[] {
+  if (!ctx.soil) return [{ source: 'soil', finding: 'Soil profile data not available for this coordinate.' }];
+  const ev: AIEvidence[] = [];
+
+  if (ctx.soil.ph > 7.8) {
+    ev.push({
+      source: 'soil',
+      finding: `Soil is moderately alkaline (pH ${ctx.soil.ph}). May induce micronutrient chlorosis (zinc, iron) in ${ctx.farm.crop}.`,
+      value: ctx.soil.ph,
+    });
+  } else if (ctx.soil.ph < 6.0) {
+    ev.push({
+      source: 'soil',
+      finding: `Soil is moderately acidic (pH ${ctx.soil.ph}). Phosphorus fixation risk.`,
+      value: ctx.soil.ph,
+    });
+  }
+
+  if (ctx.soil.organicCarbon < 0.75) {
+    ev.push({
+      source: 'soil',
+      finding: `Soil Organic Carbon is low (${ctx.soil.organicCarbon} g/kg). Biological activity and moisture retention capacity are constrained.`,
+      value: ctx.soil.organicCarbon,
+    });
+  }
+
+  return ev;
+}
+
+/** Agent 4: Geospatial & Earth Engine Agent */
+export function runGeospatialAgent(ctx: FarmContext): AIEvidence[] {
+  if (!ctx.satellite) return [{ source: 'satellite', finding: 'Satellite vegetation signal not available.' }];
+  const { ndvi, trend, trendValue, status } = ctx.satellite;
+  const ev: AIEvidence[] = [];
+
+  ev.push({
+    source: 'satellite',
+    finding: `Sentinel-2 NDVI is ${ndvi.toFixed(2)} (${status.replace('_', ' ')}). 7-day trend is ${trend} (${trendValue >= 0 ? '+' : ''}${trendValue.toFixed(2)}).`,
+    value: ndvi,
+  });
+
+  if (trend === 'declining' && Math.abs(trendValue) > 0.03) {
+    ev.push({
+      source: 'satellite',
+      finding: 'Notable drop in canopy vegetative vigor detected by satellite across recent observation intervals.',
+    });
+  }
+
+  return ev;
+}
+
+/** Agent 5: Government Scheme Agent */
+export function runSchemeAgent(ctx: FarmContext): AIEvidence[] {
+  const schemes = matchFarmerSchemes(ctx.farm);
+  const eligible = schemes.filter(s => s.isEligible);
+  return eligible.slice(0, 2).map(s => ({
+    source: 'farm_profile',
+    finding: `Eligible for ${s.name} (${s.officialTitle}): ${s.matchReason}`,
+  }));
+}
+
+// ============================================================
+// 2. CHIEF AGENT ORCHESTRATOR
+// ============================================================
 
 export async function orchestrateAgriIntelligence(ctx: FarmContext): Promise<AIRecommendation> {
   try {
-    // Build structured evidence from each specialist domain
-    const soilEvidence = analyzeSoil(ctx);
-    const climateEvidence = analyzeClimate(ctx);
-    const satelliteEvidence = analyzeSatellite(ctx);
-    const cropEvidence = analyzeCrop(ctx);
+    // Run all specialist domain agents
+    const cropEv = runCropIntelligenceAgent(ctx);
+    const weatherEv = runWeatherAgent(ctx);
+    const soilEv = runSoilHealthAgent(ctx);
+    const geoEv = runGeospatialAgent(ctx);
+    const schemeEv = runSchemeAgent(ctx);
 
-    // Assemble all evidence for Chief Agri Agent
-    const allEvidence = [...soilEvidence, ...climateEvidence, ...satelliteEvidence, ...cropEvidence];
+    const allEvidence = [...cropEv, ...weatherEv, ...soilEv, ...geoEv, ...schemeEv];
 
     const prompt = `${AGRI_SYSTEM_PROMPT}
 
-You are the Chief Agricultural Intelligence Agent for AgriOS.
+You are the Chief Agricultural Intelligence Orchestrator for AgriOS.
+Synthesize the domain agent findings and telemetry into a cohesive agricultural intelligence brief.
 
-FARM CONTEXT:
-${JSON.stringify(ctx.farm, null, 2)}
+FARM PROFILE:
+${JSON.stringify({
+  name: ctx.farm.name,
+  crop: ctx.farm.crop,
+  cropStage: ctx.farm.cropStage,
+  areaHectares: ctx.farm.areaHa,
+  location: ctx.farm.location,
+  irrigation: ctx.farm.irrigationType,
+  practice: ctx.farm.farmingPractice,
+}, null, 2)}
 
-WEATHER DATA:
+WEATHER OBSERVATION:
 ${ctx.weather ? JSON.stringify({
   temperature: ctx.weather.current.temperature,
   humidity: ctx.weather.current.humidity,
-  precipitation: ctx.weather.current.precipitation,
+  forecast3DayRainfall: ctx.weather.forecast.slice(0, 3).reduce((s, d) => s + d.precipitation, 0) + ' mm',
   risks: ctx.weather.risks,
-  next7dayRainfall: ctx.weather.forecast.reduce((s, d) => s + d.precipitation, 0).toFixed(1) + 'mm',
-  forecastSummary: ctx.weather.forecast.slice(0, 3).map(d => `${d.date}: ${d.description}, ${d.maxTemp}°C, ${d.precipitation}mm rain`).join('; '),
+  source: ctx.weather.source,
   isDemo: ctx.weather.isDemo,
-}, null, 2) : 'NOT AVAILABLE'}
+}, null, 2) : 'TELEMETRY UNAVAILABLE'}
 
-SOIL DATA:
+SOIL PROFILE:
 ${ctx.soil ? JSON.stringify({
   ph: ctx.soil.ph,
   organicCarbon: ctx.soil.organicCarbon,
-  textureClass: ctx.soil.sand > 50 ? 'Sandy' : ctx.soil.clay > 35 ? 'Clay' : 'Loam',
+  bulkDensity: ctx.soil.bulkDensity,
+  source: ctx.soil.source,
   isDemo: ctx.soil.isDemo,
-}, null, 2) : 'NOT AVAILABLE'}
+}, null, 2) : 'SOIL DATA UNAVAILABLE'}
 
-SATELLITE DATA (Vegetation Signal):
+SATELLITE VEGETATION OBSERVATION:
 ${ctx.satellite ? JSON.stringify({
   ndvi: ctx.satellite.ndvi,
   trend: ctx.satellite.trend,
   trendValue: ctx.satellite.trendValue,
-  status: ctx.satellite.status,
+  source: ctx.satellite.source,
   isDemo: ctx.satellite.isDemo,
-}, null, 2) : 'NOT AVAILABLE'}
+}, null, 2) : 'SATELLITE UNAVAILABLE'}
 
-SPECIALIST AGENT FINDINGS:
+DOMAIN SPECIALIST EVIDENCE TRAIL:
 ${JSON.stringify(allEvidence, null, 2)}
 
-Based on ALL available data above, generate a comprehensive agricultural intelligence report.
-
-Return this EXACT JSON structure:
+Produce a valid JSON object matching this schema exactly:
 {
-  "summary": "2-3 sentence plain-language farm situation summary for a farmer",
+  "summary": "Clear, practical 2-3 sentence overview written in farmer-friendly language",
   "riskLevel": "low|medium|high|critical",
-  "confidence": 75,
+  "confidence": 85,
   "evidence": [
-    {"source": "weather|soil|satellite|crop_stage|farm_profile", "finding": "specific observation", "value": "optional numeric value"}
+    {"source": "weather|soil|satellite|crop_stage|farm_profile", "finding": "fact-based observation", "value": "optional number or metric"}
   ],
   "observations": ["observation 1", "observation 2"],
   "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"],
   "actionsToday": [
-    {"action": "specific action", "reason": "why this matters now", "urgency": "immediate|today|this_week|this_month", "effort": "low|medium|high"}
+    {"action": "specific immediate task", "reason": "why this matters right now", "urgency": "immediate|today", "effort": "low|medium|high"}
   ],
   "actionsThisWeek": [
-    {"action": "action", "reason": "reason", "urgency": "this_week", "effort": "low|medium|high"}
+    {"action": "specific task for this week", "reason": "why", "urgency": "this_week", "effort": "low|medium|high"}
   ],
   "regenerativeActions": [
-    {"action": "regenerative action", "reason": "long-term benefit", "urgency": "this_month", "effort": "medium"}
+    {"action": "long term soil or biodiversity practice", "reason": "benefit", "urgency": "this_month", "effort": "medium"}
   ],
-  "warnings": ["warning if any"],
+  "warnings": ["cautions, if any"],
   "needsFieldVerification": true,
-  "dataSources": ["Open-Meteo weather", "SoilGrids", "Sentinel-2"],
-  "disclaimer": "AI-assisted assessment — field verification recommended. Not a replacement for agronomic advice.",
+  "dataSources": ["Open-Meteo", "SoilGrids", "Sentinel-2 GEE"],
+  "disclaimer": "AI-assisted agronomic assessment. Verify in field before high-consequence interventions.",
   "generatedAt": "${new Date().toISOString()}"
-}
-
-IMPORTANT: Only cite data from the context above. Do not invent measurements.`;
+}`;
 
     const result = await generateJSON<AIRecommendation>(prompt);
 
-    // Validate and sanitize
     return {
       ...result,
-      confidence: Math.min(100, Math.max(0, result.confidence || 70)),
+      confidence: Math.min(100, Math.max(20, result.confidence || 75)),
+      evidence: result.evidence && result.evidence.length > 0 ? result.evidence : allEvidence,
       generatedAt: new Date().toISOString(),
-      disclaimer: 'AI-assisted assessment — field verification recommended. Not a replacement for qualified agronomic advice.',
+      disclaimer: 'AI-assisted assessment. Field verification recommended before high-cost or chemical applications.',
     };
   } catch (err) {
-    console.error('[AI Orchestrator] Failed:', err);
-    return getDemoRecommendation(ctx);
+    console.error('[AI Orchestrator Error]', err);
+    return getHonestFallbackRecommendation(ctx);
   }
 }
 
-// ---- Specialist Agent Functions ----
+/** Agent: Interactive Farmer Advisor Q&A */
+export async function askFarmerAdvisor(ctx: FarmContext, question: string, preferredLanguage = 'en'): Promise<{ answer: string; evidence: AIEvidence[]; source: string }> {
+  const languageInstruction = preferredLanguage === 'hi'
+    ? 'Reply in clear, conversational, respectful Hindi (Devanagari script) with terms commonly understood by Indian farmers.'
+    : 'Reply in clear, practical English tailored for Indian agricultural contexts.';
 
-function analyzeSoil(ctx: FarmContext): AIEvidence[] {
-  if (!ctx.soil) return [{ source: 'soil', finding: 'Soil data not available', value: undefined }];
-  const ev: AIEvidence[] = [];
+  const prompt = `${AGRI_SYSTEM_PROMPT}
 
-  if (ctx.soil.ph > 8.0) ev.push({ source: 'soil', finding: 'Soil is alkaline — may reduce phosphorus and micronutrient availability', value: ctx.soil.ph });
-  else if (ctx.soil.ph > 7.5) ev.push({ source: 'soil', finding: 'Slightly alkaline soil — monitor for iron/manganese deficiency', value: ctx.soil.ph });
-  else ev.push({ source: 'soil', finding: 'Soil pH within acceptable range', value: ctx.soil.ph });
+FARM CONTEXT:
+- Farm: ${ctx.farm.name} (${ctx.farm.location.state || ''}, ${ctx.farm.location.country})
+- Crop: ${ctx.farm.crop} (${ctx.farm.cropStage} stage)
+- Soil: ${ctx.soil ? `pH ${ctx.soil.ph}, SOC ${ctx.soil.organicCarbon} g/kg` : 'Unknown'}
+- Weather: ${ctx.weather ? `${ctx.weather.current.temperature}°C, ${ctx.weather.current.humidity}% humidity, forecast ${ctx.weather.current.description}` : 'Unknown'}
+- NDVI: ${ctx.satellite ? ctx.satellite.ndvi : 'Unknown'}
 
-  if (ctx.soil.organicCarbon < 0.5) ev.push({ source: 'soil', finding: 'Very low organic carbon — poor soil biology and water retention likely', value: ctx.soil.organicCarbon });
-  else if (ctx.soil.organicCarbon < 1.0) ev.push({ source: 'soil', finding: 'Low organic carbon — soil health improvement opportunity', value: ctx.soil.organicCarbon });
+FARMER QUESTION:
+"${question}"
 
-  return ev;
+INSTRUCTIONS:
+${languageInstruction}
+Provide an expert, empathetic, actionable answer. If field verification or local Krishi Vigyan Kendra (KVK) consultation is appropriate, mention it. Never invent data not present in the context.`;
+
+  try {
+    const text = await generateText(prompt);
+    return {
+      answer: text,
+      evidence: [
+        { source: 'crop_stage', finding: `${ctx.farm.crop} at ${ctx.farm.cropStage}` },
+        ...(ctx.weather ? [{ source: 'weather' as const, finding: `${ctx.weather.current.temperature}°C, ${ctx.weather.current.humidity}% humidity` }] : []),
+      ],
+      source: 'AgriOS Chief Intelligence Agent (Gemini)',
+    };
+  } catch (err) {
+    console.error('[askFarmerAdvisor Error]', err);
+    return {
+      answer: preferredLanguage === 'hi'
+        ? 'वर्तमान में एआई सलाहकार सेवा व्यस्त है। कृपया अपने खेत की मिट्टी और मौसम की वर्तमान स्थिति का ध्यान रखते हुए स्थानीय कृषि विशेषज्ञ से संपर्क करें।'
+        : 'The AI advisor is temporarily unavailable. Based on your crop and stage, maintain appropriate irrigation intervals and monitor for symptoms.',
+      evidence: [],
+      source: 'AgriOS Local Fallback',
+    };
+  }
 }
 
-function analyzeClimate(ctx: FarmContext): AIEvidence[] {
-  if (!ctx.weather) return [{ source: 'weather', finding: 'Weather data not available', value: undefined }];
-  const ev: AIEvidence[] = [];
-  const { current, risks, forecast } = ctx.weather;
-
-  if (risks.diseaseRisk === 'high') ev.push({ source: 'weather', finding: `High humidity (${current.humidity}%) with moderate temperature — favorable for fungal disease`, value: current.humidity });
-  if (risks.irrigationStress === 'high') ev.push({ source: 'weather', finding: 'Low rainfall forecast — irrigation stress risk', value: undefined });
-  if (risks.heatStress !== 'low') ev.push({ source: 'weather', finding: `Heat stress risk detected — max temperature ${Math.max(...forecast.slice(0, 3).map(d => d.maxTemp))}°C`, value: undefined });
-
-  const upcomingRain = forecast.slice(0, 3).reduce((s, d) => s + d.precipitation, 0);
-  if (upcomingRain > 10) ev.push({ source: 'weather', finding: `${upcomingRain.toFixed(0)}mm rainfall expected in next 72 hours`, value: upcomingRain });
-
-  return ev;
-}
-
-function analyzeSatellite(ctx: FarmContext): AIEvidence[] {
-  if (!ctx.satellite) return [{ source: 'satellite', finding: 'Satellite data not available', value: undefined }];
-  const { ndvi, trend, trendValue } = ctx.satellite;
-  const ev: AIEvidence[] = [];
-
-  ev.push({ source: 'satellite', finding: `Current vegetation signal (NDVI): ${ndvi} — ${ndvi > 0.5 ? 'within normal range' : 'below optimal'}`, value: ndvi });
-  if (trend === 'declining') ev.push({ source: 'satellite', finding: `Vegetation signal declining (${trendValue.toFixed(2)} change) — possible stress developing`, value: trendValue });
-  else if (trend === 'improving') ev.push({ source: 'satellite', finding: `Vegetation improving (+${trendValue.toFixed(2)}) — crop responding well`, value: trendValue });
-
-  return ev;
-}
-
-function analyzeCrop(ctx: FarmContext): AIEvidence[] {
-  const ev: AIEvidence[] = [];
-  ev.push({ source: 'crop_stage', finding: `${ctx.farm.crop} at ${ctx.farm.cropStage} stage — stage-specific risks apply`, value: undefined });
-  return ev;
-}
-
-// ---- Demo Fallback ----
-
-function getDemoRecommendation(ctx: FarmContext): AIRecommendation {
+function getHonestFallbackRecommendation(ctx: FarmContext): AIRecommendation {
   return {
-    summary: `Your ${ctx.farm.crop} field in ${ctx.farm.location.state || ctx.farm.location.country} is showing moderate vegetation signal. Rainfall is expected in the next 36-48 hours, so irrigation can likely be delayed. Elevated humidity creates conditions favorable for fungal disease — inspect lower leaves tomorrow morning.`,
+    summary: `Your ${ctx.farm.crop} is in ${ctx.farm.cropStage.replace('_', ' ')} stage in ${ctx.farm.location.state || 'your region'}. Real-time Gemini inference is temporarily running in offline mode. Standard agronomic safety guidelines apply.`,
     riskLevel: 'medium',
-    confidence: 78,
+    confidence: 65,
     evidence: [
-      { source: 'weather', finding: 'High humidity (72%) — disease-conducive conditions', value: 72 },
-      { source: 'satellite', finding: 'NDVI 0.58 — within normal range for crop stage', value: 0.58 },
-      { source: 'weather', finding: 'Rainfall expected in 36-48 hours', value: undefined },
-      { source: 'soil', finding: 'Slightly alkaline pH (7.8) — monitor nutrient availability', value: 7.8 },
+      { source: 'crop_stage', finding: `${ctx.farm.crop} at ${ctx.farm.cropStage} stage` },
+      ...(ctx.weather ? [{ source: 'weather' as const, finding: `${ctx.weather.current.temperature}°C, humidity ${ctx.weather.current.humidity}%` }] : []),
     ],
     observations: [
-      'Vegetation signal is stable and within normal range',
-      'Humidity elevated above disease-risk threshold',
-      'Rainfall expected — irrigation delay recommended',
-      'Soil pH slightly alkaline — monitor for micronutrient stress',
+      `Crop is currently in ${ctx.farm.cropStage.replace('_', ' ')} stage`,
+      ctx.weather ? `Current ambient humidity is ${ctx.weather.current.humidity}%` : 'Weather telemetry pending',
     ],
     recommendations: [
-      'Delay irrigation by 24-36 hours pending rainfall assessment',
-      'Inspect lower canopy leaves for early fungal symptoms tomorrow morning',
-      'Monitor drainage after rainfall to prevent waterlogging',
+      'Maintain adequate moisture based on rainfall forecast',
+      'Inspect representative leaves for early symptoms of foliar disease',
+      'Ensure field drainage channels are clear of debris',
     ],
     actionsToday: [
-      { action: 'Inspect lower leaves of 10-15 representative plants', reason: 'High humidity creates fungal disease risk', urgency: 'today', effort: 'low' },
-      { action: 'Check drainage infrastructure', reason: 'Rainfall forecast — prevent waterlogging', urgency: 'today', effort: 'low' },
+      { action: 'Inspect field borders and lower plant canopy', reason: 'Early detection prevents yield loss', urgency: 'today', effort: 'low' },
     ],
     actionsThisWeek: [
-      { action: 'Reassess irrigation schedule after rainfall', reason: 'Avoid over-irrigation and leaching', urgency: 'this_week', effort: 'low' },
-      { action: 'Monitor NDVI trend after rainfall', reason: 'Rainfall should improve vegetation signal', urgency: 'this_week', effort: 'low' },
+      { action: 'Review nutrient application timing with stage requirements', reason: 'Optimize input efficiency', urgency: 'this_week', effort: 'medium' },
     ],
     regenerativeActions: [
-      { action: 'Plan cover crop after wheat harvest', reason: 'Soil organic carbon is low — cover crops rebuild soil health', urgency: 'this_month', effort: 'medium' },
+      { action: 'Plan post-harvest crop residue retention or mulching', reason: 'Increases soil organic matter and water holding capacity', urgency: 'this_month', effort: 'medium' },
     ],
-    warnings: ['AI-generated recommendations — verify in field before major decisions'],
+    warnings: ['Offline fallback report — verify field conditions manually.'],
     needsFieldVerification: true,
-    dataSources: ['Open-Meteo weather', 'SoilGrids soil data', 'Sentinel-2 via Google Earth Engine'],
-    disclaimer: 'AI-assisted assessment — field verification recommended. Not a replacement for qualified agronomic advice.',
+    dataSources: ['Open-Meteo', 'SoilGrids'],
+    disclaimer: 'AI-assisted assessment. Field verification recommended.',
     generatedAt: new Date().toISOString(),
   };
 }

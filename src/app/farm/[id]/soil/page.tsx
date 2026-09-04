@@ -1,11 +1,39 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
+import { use } from 'react';
+import { useFarmContext } from '@/hooks/useFarmContext';
 import { DEMO_SOIL } from '@/lib/demo/demoData';
-import { Layers, Info } from 'lucide-react';
+import { Layers, Info, RefreshCw } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { LoadingCard, ErrorCard, DemoBadge } from '@/components/ui/DataState';
 
-export default function SoilPage() {
-  const soil = DEMO_SOIL;
+export default function SoilPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx, loading, error, refresh } = useFarmContext(farmId);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <LoadingCard label="Loading soil profile…" sublabel="Querying SoilGrids depth layers" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !ctx) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <ErrorCard message={error || 'Could not load soil profile'} onRetry={refresh} />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const soil = ctx.soil || DEMO_SOIL;
+  const locationText = [ctx.farm.location.district, ctx.farm.location.state, ctx.farm.location.country]
+    .filter(Boolean).join(', ') || `${ctx.farm.location.lat.toFixed(2)}, ${ctx.farm.location.lng.toFixed(2)}`;
 
   const totalTexture = soil.sand + soil.silt + soil.clay;
   const sandPct = ((soil.sand / totalTexture) * 100).toFixed(0);
@@ -15,7 +43,7 @@ export default function SoilPage() {
   const radarData = [
     { metric: 'pH Balance', value: soil.ph > 8.5 ? 20 : soil.ph < 5.5 ? 20 : soil.ph > 7.5 ? 55 : soil.ph > 6.5 ? 90 : 75 },
     { metric: 'Organic Carbon', value: Math.min(100, (soil.organicCarbon / 2) * 100) },
-    { metric: 'Texture', value: 70 }, // loam is near-optimal
+    { metric: 'Texture', value: 70 },
     { metric: 'Bulk Density', value: soil.bulkDensity < 1.2 ? 85 : soil.bulkDensity < 1.5 ? 65 : 40 },
     { metric: 'Biology Potential', value: soil.organicCarbon > 1.5 ? 80 : soil.organicCarbon > 1.0 ? 60 : soil.organicCarbon > 0.5 ? 40 : 25 },
     { metric: 'Water Retention', value: parseInt(clayPct) > 30 ? 75 : parseInt(siltPct) > 30 ? 65 : 50 },
@@ -30,15 +58,20 @@ export default function SoilPage() {
   return (
     <AppShell>
       <div style={{ padding: '28px', minHeight: '100vh' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Layers size={22} color="var(--agrios-soil-500)" />
             <h2 style={{ margin: 0 }}>Soil Health Profile</h2>
           </div>
-          <span className="badge badge-demo">Demo Data · SoilGrids</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={refresh} className="btn btn-outline btn-sm" title="Refresh soil data">
+              <RefreshCw size={13} /> Refresh
+            </button>
+            {soil.isDemo ? <DemoBadge note="Demo Data · SoilGrids" /> : <span className="badge badge-green">SoilGrids Live</span>}
+          </div>
         </div>
         <p style={{ color: 'var(--text-muted)', marginBottom: '28px', fontSize: '0.875rem' }}>
-          Soil chemistry and physical properties · 0-30cm depth
+          {ctx.farm.name} ({locationText}) · 0-30cm depth
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>

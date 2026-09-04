@@ -2,9 +2,10 @@
 import AppShell from '@/components/layout/AppShell';
 import { DEMO_REGENERATIVE_SCORE } from '@/lib/demo/demoData';
 import { Repeat2, Info, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { ScoreCategory } from '@/types';
+import { useFarmContext } from '@/hooks/useFarmContext';
 
 function CategoryBar({ cat, weight }: { cat: ScoreCategory; weight: number }) {
   const [open, setOpen] = useState(false);
@@ -54,8 +55,10 @@ function CategoryBar({ cat, weight }: { cat: ScoreCategory; weight: number }) {
   );
 }
 
-export default function RegenerativePage() {
-  const score = DEMO_REGENERATIVE_SCORE;
+export default function RegenerativePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx } = useFarmContext(farmId);
+  const score = ctx?.regenerativeScore || DEMO_REGENERATIVE_SCORE;
   const weights = { soilHealth: 20, waterEfficiency: 18, biodiversity: 12, inputEfficiency: 15, cropResilience: 15, carbonOM: 10, climateResilience: 10 };
 
   const circumference = 2 * Math.PI * 54;
@@ -92,7 +95,7 @@ export default function RegenerativePage() {
 
               {/* Mini bars */}
               <div style={{ marginTop: '20px', textAlign: 'left' }}>
-                {Object.entries(score.categories).map(([key, cat]) => (
+                {(Object.entries(score.categories) as [string, ScoreCategory][]).map(([key, cat]) => (
                   <div key={key} style={{ marginBottom: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                       <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)' }}>{cat.name}</span>
@@ -115,7 +118,7 @@ export default function RegenerativePage() {
           {/* Category breakdown */}
           <div className="card">
             <h4 style={{ marginBottom: '24px' }}>Score Breakdown by Category</h4>
-            {Object.entries(score.categories).map(([key, cat]) => (
+            {(Object.entries(score.categories) as [string, ScoreCategory][]).map(([key, cat]) => (
               <CategoryBar key={key} cat={cat} weight={weights[key as keyof typeof weights]} />
             ))}
             <div className="data-source-label"><Info size={12} /> Scores are rule-based estimates from farm profile, soil, weather, and satellite data · Demo Data</div>

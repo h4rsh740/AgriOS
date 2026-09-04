@@ -1,10 +1,14 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
-import { useState, useRef } from 'react';
+import { useState, useRef, use } from 'react';
 import { Microscope, Upload, X, AlertTriangle, Info, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { DiseaseAssessment } from '@/types';
+import { useFarmContext } from '@/hooks/useFarmContext';
 
-export default function DiseasePage({ params }: { params: { id: string } }) {
+export default function DiseasePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx } = useFarmContext(farmId);
+
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,19 +33,34 @@ export default function DiseasePage({ params }: { params: { id: string } }) {
     try {
       const formData = new FormData();
       if (image) formData.append('image', image);
-      formData.append('context', JSON.stringify({
-        farmId: params.id,
-        crop: 'Wheat',
-        cropStage: 'vegetative',
-        location: { state: 'Uttar Pradesh', country: 'India' },
-        weather: { current: { temperature: 31, humidity: 72 }, risks: { diseaseRisk: 'high' } },
-        ndvi: 0.58,
-      }));
+      
+      const contextData = {
+        farmId,
+        crop: ctx?.farm.crop || 'Wheat',
+        cropStage: ctx?.farm.cropStage || 'vegetative',
+        location: ctx?.farm.location || { state: 'Uttar Pradesh', country: 'India' },
+        weather: ctx?.weather || { current: { temperature: 31, humidity: 72 }, risks: { diseaseRisk: 'high' } },
+        ndvi: ctx?.satellite?.ndvi || 0.58,
+      };
+
+      formData.append('context', JSON.stringify(contextData));
 
       const res = await fetch('/api/disease', { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Analysis failed');
       const data: DiseaseAssessment = await res.json();
       setResult(data);
+
+      // Best-effort persist to Firestore and localStorage
+      try {
+        const { saveDiseaseAssessment } = await import('@/lib/firebase/firestore');
+        await saveDiseaseAssessment(data);
+      } catch {
+        if (typeof window !== 'undefined') {
+          const history = JSON.parse(localStorage.getItem(`agrios_disease_${farmId}`) || '[]');
+          history.unshift(data);
+          localStorage.setItem(`agrios_disease_${farmId}`, JSON.stringify(history.slice(0, 10)));
+        }
+      }
     } catch {
       setError('Disease analysis failed. Please try again.');
     } finally {
@@ -115,9 +134,13 @@ export default function DiseasePage({ params }: { params: { id: string } }) {
 
             {/* Context chips */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-              <span className="badge badge-green">Wheat · Vegetative</span>
-              <span className="badge badge-amber">Humidity 72% · Disease Risk High</span>
-              <span className="badge badge-blue">NDVI 0.58</span>
+              <span className="badge badge-green">{ctx?.farm.crop || 'Crop'} · {(ctx?.farm.cropStage || 'vegetative').replace('_', ' ')}</span>
+              {ctx?.weather && (
+                <span className="badge badge-amber">Humidity {ctx.weather.current.humidity}% · Disease Risk {ctx.weather.risks.diseaseRisk}</span>
+              )}
+              {ctx?.satellite && (
+                <span className="badge badge-blue">NDVI {ctx.satellite.ndvi.toFixed(2)}</span>
+              )}
             </div>
 
             {error && (

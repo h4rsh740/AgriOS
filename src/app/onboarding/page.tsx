@@ -95,28 +95,44 @@ export default function OnboardingPage() {
 
   async function handleCreate() {
     setSaving(true); setError('');
+    const newFarmData = {
+      name: farmName.trim() || `${farmerName.trim()}'s Farm`,
+      location: {
+        lat: location.lat,
+        lng: location.lng,
+        address: location.address || undefined,
+        state: location.state || undefined,
+        country: location.country,
+      },
+      areaHa: areaNum,
+      crop,
+      cropStage,
+      irrigationType: irrigation,
+      farmingPractice: practice,
+    };
+
     try {
       const farmId = await createFarm(user?.uid || 'demo-user', {
+        ...newFarmData,
         ownerId: user?.uid || 'demo-user',
-        name: farmName.trim() || `${farmerName.trim()}'s Farm`,
-        location: {
-          lat: location.lat,
-          lng: location.lng,
-          address: location.address || undefined,
-          state: location.state || undefined,
-          country: location.country,
-        },
-        areaHa: areaNum,
-        crop,
-        cropStage,
-        irrigationType: irrigation,
-        farmingPractice: practice,
       });
       setCreatedFarmId(farmId);
+      // Also cache locally
+      if (typeof window !== 'undefined') {
+        const existing = JSON.parse(localStorage.getItem('agrios_local_farms') || '[]');
+        existing.unshift({ id: farmId, ownerId: user?.uid || 'demo-user', ...newFarmData, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+        localStorage.setItem('agrios_local_farms', JSON.stringify(existing));
+      }
     } catch {
-      // Firebase not configured / offline — honest demo fallback.
+      // Firebase not configured / offline — save locally so real input is preserved
       setUsedDemo(true);
-      setCreatedFarmId('demo-farm-001');
+      const localId = `farm-local-${Date.now()}`;
+      setCreatedFarmId(localId);
+      if (typeof window !== 'undefined') {
+        const existing = JSON.parse(localStorage.getItem('agrios_local_farms') || '[]');
+        existing.unshift({ id: localId, ownerId: user?.uid || 'demo-user', ...newFarmData, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+        localStorage.setItem('agrios_local_farms', JSON.stringify(existing));
+      }
     } finally {
       setSaving(false);
       setCompleted(true);

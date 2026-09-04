@@ -1,11 +1,39 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
+import { use } from 'react';
+import { useFarmContext } from '@/hooks/useFarmContext';
 import { DEMO_WEATHER } from '@/lib/demo/demoData';
-import { CloudRain, Wind, Droplets, Thermometer, Info, AlertTriangle } from 'lucide-react';
+import { CloudRain, Wind, Droplets, Thermometer, Info, AlertTriangle, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LoadingCard, ErrorCard, DemoBadge } from '@/components/ui/DataState';
 
-export default function WeatherPage() {
-  const weather = DEMO_WEATHER;
+export default function WeatherPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx, loading, error, refresh } = useFarmContext(farmId);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <LoadingCard label="Loading weather telemetry…" sublabel="Connecting to Open-Meteo" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !ctx) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <ErrorCard message={error || 'Could not load weather telemetry'} onRetry={refresh} />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const weather = ctx.weather || DEMO_WEATHER;
+  const locationText = [ctx.farm.location.address, ctx.farm.location.district, ctx.farm.location.state, ctx.farm.location.country]
+    .filter(Boolean).join(', ') || `${ctx.farm.location.lat.toFixed(2)}, ${ctx.farm.location.lng.toFixed(2)}`;
 
   const chartData = weather.forecast.map(d => ({
     day: new Date(d.date).toLocaleDateString('en', { weekday: 'short' }),
@@ -19,15 +47,20 @@ export default function WeatherPage() {
   return (
     <AppShell>
       <div style={{ padding: '28px', minHeight: '100vh' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <CloudRain size={20} color="var(--agrios-sky-600)" />
               <h2 style={{ margin: 0 }}>Weather Intelligence</h2>
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Lucknow, Uttar Pradesh, India · Open-Meteo</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{locationText} · Open-Meteo</p>
           </div>
-          <span className="badge badge-demo">Demo Data</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={refresh} className="btn btn-outline btn-sm" title="Refresh weather">
+              <RefreshCw size={13} /> Refresh
+            </button>
+            {weather.isDemo ? <DemoBadge note="Demo Data" /> : <span className="badge badge-green">Live Feed</span>}
+          </div>
         </div>
 
         {/* Current conditions */}

@@ -150,6 +150,7 @@ export interface DiseaseAssessment {
   needsFieldVerification: boolean;
   disclaimer: string;
   assessedAt: string;
+  isDemo?: boolean;
 }
 
 // ---- AI Types ----

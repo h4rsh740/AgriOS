@@ -60,9 +60,9 @@ export function EmptyCard({ message = 'No data available yet.' }: { message?: st
  * Honest "DEMO DATA" badge shown whenever a section falls back to
  * simulated values. Never pretend demo data is live.
  */
-export function DemoBadge({ note = 'Demo data' }: { note?: string }) {
+export function DemoBadge({ note = 'Demo data', style }: { note?: string; style?: React.CSSProperties }) {
   return (
-    <span className="badge badge-demo" title="Simulated data — not from a live sensor or satellite">
+    <span className="badge badge-demo" title="Simulated data — not from a live sensor or satellite" style={style}>
       <Database size={11} /> {note}
     </span>
   );

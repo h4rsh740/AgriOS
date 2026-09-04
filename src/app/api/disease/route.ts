@@ -76,6 +76,7 @@ RULES: Be honest about uncertainty. If no image is provided, say so. Never recom
     try {
       const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
       assessment = JSON.parse(jsonMatch ? jsonMatch[1] : responseText);
+      assessment.isDemo = false;
     } catch {
       assessment = getDemoAssessment(farmContext);
     }
@@ -94,6 +95,7 @@ function getDemoAssessment(ctx: Record<string, unknown>): DiseaseAssessment {
     likelyIssue: 'Powdery Mildew (Blumeria graminis)',
     confidence: 68,
     severity: 'moderate',
+    isDemo: true,
     symptoms: ['White powdery coating on leaves', 'Yellowing of affected leaf areas', 'Stunted growth in severely affected plants'],
     possibleCauses: ['High humidity (currently 72%)', 'Dense crop canopy limiting airflow', 'Susceptible variety under stress conditions'],
     evidence: [

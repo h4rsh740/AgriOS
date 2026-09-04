@@ -1,8 +1,20 @@
 // ============================================================
 // AgriOS — SoilGrids Soil Service (WCS + labeled fallback)
 // ============================================================
-import { SoilProfile } from '@/types';
-import { DEMO_SOIL } from '@/lib/demo/demoData';
+import type { SoilProfile } from '@/types';
+
+const DEFAULT_BENCHMARK_SOIL: SoilProfile = {
+  ph: 7.8,
+  organicCarbon: 0.48,
+  sand: 42,
+  silt: 35,
+  clay: 23,
+  bulkDensity: 1.32,
+  nitrogen: 0.9,
+  source: 'demo',
+  fetchedAt: new Date().toISOString(),
+  isDemo: true,
+};
 
 const soilCache = new Map<string, { data: SoilProfile; ts: number }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -25,8 +37,12 @@ export async function fetchSoilData(lat: number, lng: number): Promise<SoilProfi
     const raw = await res.json();
 
     const props = raw.properties?.layers;
+    if (!props || !Array.isArray(props) || props.length === 0) {
+      throw new Error('SoilGrids returned no layers for this location');
+    }
+
     const getVal = (name: string) => {
-      const layer = props?.find((l: { name: string }) => l.name === name);
+      const layer = props.find((l: { name: string }) => l.name === name);
       return layer?.depths?.[0]?.values?.mean ?? null;
     };
 
@@ -36,6 +52,11 @@ export async function fetchSoilData(lat: number, lng: number): Promise<SoilProfi
     const siltRaw = getVal('silt');
     const clayRaw = getVal('clay');
     const bdRaw = getVal('bdod');   // cg/cm³
+
+    // If critical fields are missing, treat as unavailable rather than fabricating live data
+    if (phRaw === null && socRaw === null) {
+      throw new Error('SoilGrids properties missing in response');
+    }
 
     const soil: SoilProfile = {
       ph: phRaw !== null ? phRaw / 10 : 6.8,
@@ -53,7 +74,7 @@ export async function fetchSoilData(lat: number, lng: number): Promise<SoilProfi
     return soil;
   } catch (err) {
     console.warn('[Soil] SoilGrids unavailable, using demo fallback:', err);
-    return { ...DEMO_SOIL, isDemo: true, source: 'demo' };
+    return { ...DEFAULT_BENCHMARK_SOIL, isDemo: true, source: 'demo' };
   }
 }
 

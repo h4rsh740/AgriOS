@@ -1,8 +1,11 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
+import { use } from 'react';
+import { useFarmContext } from '@/hooks/useFarmContext';
 import { DEMO_SATELLITE } from '@/lib/demo/demoData';
-import { Satellite, TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { Satellite, TrendingUp, TrendingDown, Minus, Info, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LoadingCard, ErrorCard, DemoBadge } from '@/components/ui/DataState';
 
 // Realistic NDVI trend (last 8 weeks)
 const NDVI_HISTORY = [
@@ -13,23 +16,51 @@ const NDVI_HISTORY = [
   { week: 'Now', ndvi: 0.58, date: '2 Sep' },
 ];
 
-export default function SatellitePage() {
-  const sat = DEMO_SATELLITE;
+export default function SatellitePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx, loading, error, refresh } = useFarmContext(farmId);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <LoadingCard label="Loading satellite observation…" sublabel="Querying Sentinel-2 / Google Earth Engine" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !ctx) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <ErrorCard message={error || 'Could not load satellite data'} onRetry={refresh} />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const sat = ctx.satellite || DEMO_SATELLITE;
   const TrendIcon = sat.trend === 'improving' ? TrendingUp : sat.trend === 'declining' ? TrendingDown : Minus;
   const trendColor = sat.trend === 'improving' ? 'var(--agrios-green-500)' : sat.trend === 'declining' ? 'var(--agrios-red-400)' : 'var(--text-muted)';
 
   return (
     <AppShell>
       <div style={{ padding: '28px', minHeight: '100vh' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Satellite size={22} color="var(--agrios-sky-400)" />
             <h2 style={{ margin: 0 }}>Satellite Vegetation Intelligence</h2>
           </div>
-          <span className="badge badge-demo">Demo Data</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={refresh} className="btn btn-outline btn-sm" title="Refresh satellite observations">
+              <RefreshCw size={13} /> Refresh
+            </button>
+            {sat.isDemo ? <DemoBadge note="Demo Data · GEE" /> : <span className="badge badge-green">Sentinel-2 Live</span>}
+          </div>
         </div>
         <p style={{ color: 'var(--text-muted)', marginBottom: '28px', fontSize: '0.875rem' }}>
-          Sentinel-2 NDVI via Google Earth Engine · Updated weekly
+          {ctx.farm.name} · Sentinel-2 NDVI via Google Earth Engine · Updated weekly
         </p>
 
         {/* Key metrics */}

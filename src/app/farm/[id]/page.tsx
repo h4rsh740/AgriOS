@@ -1,21 +1,66 @@
 'use client';
+// ============================================================
+// AgriOS — Farm Digital Twin (overview)
+// Loads the full farm context via useFarmContext (weather,
+// soil, satellite — each with independent demo fallback) and
+// renders Loading / Error / Demo states via DataState.
+// ============================================================
 import AppShell from '@/components/layout/AppShell';
-import { DEMO_WEATHER, DEMO_SOIL, DEMO_SATELLITE, DEMO_REGENERATIVE_SCORE } from '@/lib/demo/demoData';
+import { use } from 'react';
 import Link from 'next/link';
 import {
   Leaf, Satellite, CloudRain, Layers, Microscope, SlidersHorizontal,
   Repeat2, MapPin, Info, TrendingUp, TrendingDown, Minus,
-  ChevronRight, Zap, Globe
+  ChevronRight, Zap, Globe, RefreshCw, AlertTriangle,
 } from 'lucide-react';
+import { useFarmContext } from '@/hooks/useFarmContext';
+import { DEMO_WEATHER, DEMO_SOIL, DEMO_SATELLITE, DEMO_REGENERATIVE_SCORE } from '@/lib/demo/demoData';
+import { LoadingCard, ErrorCard, DemoBadge } from '@/components/ui/DataState';
 
-export default function FarmTwinPage({ params }: { params: { id: string } }) {
-  const weather = DEMO_WEATHER;
-  const soil = DEMO_SOIL;
-  const satellite = DEMO_SATELLITE;
-  const score = DEMO_REGENERATIVE_SCORE;
+export default function FarmTwinPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: farmId } = use(params);
+  const { ctx, loading, error, refresh } = useFarmContext(farmId);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <LoadingCard label="Loading your farm twin…" sublabel="Fetching weather, soil, and satellite context" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !ctx) {
+    return (
+      <AppShell>
+        <div style={{ padding: '28px' }}>
+          <ErrorCard message={error || 'Farm context could not be loaded.'} onRetry={refresh} />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const { farm } = ctx;
+  const weather = ctx.weather ?? DEMO_WEATHER;
+  const soil = ctx.soil ?? DEMO_SOIL;
+  const satellite = ctx.satellite ?? DEMO_SATELLITE;
+  const score = ctx.regenerativeScore ?? DEMO_REGENERATIVE_SCORE;
 
   const TrendIcon = satellite.trend === 'improving' ? TrendingUp : satellite.trend === 'declining' ? TrendingDown : Minus;
   const trendColor = satellite.trend === 'improving' ? 'var(--agrios-green-500)' : satellite.trend === 'declining' ? 'var(--agrios-red-400)' : 'var(--text-muted)';
+
+  // Derive USDA-style texture class from SoilGrids sand/silt/clay percentages.
+  const soilTexture = (() => {
+    const { sand, silt, clay } = soil;
+    if (clay >= 40) return 'Clay';
+    if (sand >= 70) return 'Sandy';
+    if (silt >= 70) return 'Silty';
+    if (clay >= 25 && silt >= 40) return 'Clay Loam';
+    return 'Loam';
+  })();
+
+  const locLabel = [farm.location.address, farm.location.state, farm.location.country].filter(Boolean).join(', ') || `${farm.location.lat.toFixed(3)}, ${farm.location.lng.toFixed(3)}`;
 
   return (
     <AppShell>
@@ -31,45 +76,72 @@ export default function FarmTwinPage({ params }: { params: { id: string } }) {
                     <Leaf size={22} color="white" />
                   </div>
                   <div>
-                    <h2 style={{ color: 'white', margin: 0, fontSize: '1.4rem' }}>Demo Farm</h2>
+                    <h2 style={{ color: 'white', margin: 0, fontSize: '1.4rem' }}>{farm.name}</h2>
                     <div style={{ color: 'var(--agrios-green-200)', fontSize: '0.85rem' }}>Farm Digital Twin</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '12px' }}>
                   {[
-                    { label: 'Crop', value: 'Wheat (Triticum)' },
-                    { label: 'Stage', value: 'Vegetative' },
-                    { label: 'Area', value: '2.4 ha' },
-                    { label: 'Location', value: 'Lucknow, Uttar Pradesh, India' },
-                    { label: 'Irrigation', value: 'Drip' },
-                    { label: 'Practice', value: 'Conventional' },
+                    { label: 'Crop', value: farm.crop },
+                    { label: 'Stage', value: farm.cropStage.replace('_', ' ') },
+                    { label: 'Area', value: `${farm.areaHa} ha` },
+                    { label: 'Location', value: locLabel },
+                    { label: 'Irrigation', value: farm.irrigationType },
+                    { label: 'Practice', value: farm.farmingPractice },
                   ].map((item, i) => (
                     <div key={i}>
                       <div style={{ fontSize: '0.7rem', color: 'var(--agrios-green-300)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>{item.label}</div>
-                      <div style={{ color: 'white', fontSize: '0.875rem', fontWeight: 500 }}>{item.value}</div>
+                      <div style={{ color: 'white', fontSize: '0.875rem', fontWeight: 500, textTransform: 'capitalize' }}>{item.value}</div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="badge badge-demo">Demo Data</span>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={refresh}
+                  style={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}
+                  title="Reload farm context"
+                >
+                  <RefreshCw size={13} /> Refresh
+                </button>
+                {ctx.isDemo && <DemoBadge note="Demo Data" />}
                 <span className="badge badge-green">Twin Active</span>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Active alerts (best-effort) */}
+        {ctx.alerts && ctx.alerts.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+            {ctx.alerts.slice(0, 3).map((alert) => (
+              <div key={alert.id} style={{
+                display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.82rem',
+                background: alert.severity === 'critical' ? 'var(--agrios-red-100)' : alert.severity === 'warning' ? 'var(--agrios-amber-100)' : 'var(--surface-muted)',
+                border: `1px solid ${alert.severity === 'critical' ? 'var(--agrios-red-400)' : alert.severity === 'warning' ? 'var(--agrios-amber-400)' : 'var(--border-default)'}`,
+              }}>
+                <AlertTriangle size={15} color={alert.severity === 'critical' ? 'var(--agrios-red-600)' : '#92400e'} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <strong style={{ textTransform: 'capitalize' }}>{alert.type.replace('_', ' ')}</strong> — {alert.message}
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>{alert.recommendedAction}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Navigation tiles */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px' }}>
           {[
-            { href: `/farm/${params.id}/weather`, icon: CloudRain, label: 'Weather', desc: `${weather.current.temperature}°C · ${weather.current.description}`, color: 'var(--agrios-sky-600)', risk: weather.risks.heatStress },
-            { href: `/farm/${params.id}/satellite`, icon: Satellite, label: 'Satellite / NDVI', desc: `NDVI ${satellite.ndvi} · ${satellite.status}`, color: 'var(--agrios-sky-400)', risk: null },
-            { href: `/farm/${params.id}/soil`, icon: Layers, label: 'Soil Health', desc: `pH ${soil.ph} · SOC ${soil.organicCarbon} g/kg`, color: 'var(--agrios-soil-500)', risk: null },
-            { href: `/farm/${params.id}/disease`, icon: Microscope, label: 'Disease Investigator', desc: 'Upload photo for AI analysis', color: 'var(--agrios-amber-400)', risk: weather.risks.diseaseRisk },
-            { href: `/farm/${params.id}/advisor`, icon: Zap, label: 'AI Advisor', desc: 'Evidence-based recommendations', color: 'var(--agrios-green-500)', risk: null },
-            { href: `/farm/${params.id}/simulate`, icon: SlidersHorizontal, label: 'What-If', desc: 'Compare farming scenarios', color: 'var(--agrios-soil-700)', risk: null },
-            { href: `/farm/${params.id}/regenerative`, icon: Repeat2, label: 'Regenerative Score', desc: `${score.total}/100 · ${score.categories.soilHealth.status}`, color: 'var(--agrios-green-400)', risk: null },
-            { href: `/farm/${params.id}/roadmap`, icon: MapPin, label: '90-Day Roadmap', desc: 'AI regenerative action plan', color: 'var(--agrios-green-500)', risk: null },
+            { href: `/farm/${farmId}/weather`, icon: CloudRain, label: 'Weather', desc: `${weather.current.temperature}°C · ${weather.current.description}`, color: 'var(--agrios-sky-600)', risk: weather.risks.heatStress },
+            { href: `/farm/${farmId}/satellite`, icon: Satellite, label: 'Satellite / NDVI', desc: `NDVI ${satellite.ndvi} · ${satellite.status}`, color: 'var(--agrios-sky-400)', risk: null },
+            { href: `/farm/${farmId}/soil`, icon: Layers, label: 'Soil Health', desc: `pH ${soil.ph} · SOC ${soil.organicCarbon} g/kg`, color: 'var(--agrios-soil-500)', risk: null },
+            { href: `/farm/${farmId}/disease`, icon: Microscope, label: 'Disease Investigator', desc: 'Upload photo for AI analysis', color: 'var(--agrios-amber-400)', risk: weather.risks.diseaseRisk },
+            { href: `/farm/${farmId}/advisor`, icon: Zap, label: 'AI Advisor', desc: 'Evidence-based recommendations', color: 'var(--agrios-green-500)', risk: null },
+            { href: `/farm/${farmId}/simulate`, icon: SlidersHorizontal, label: 'What-If', desc: 'Compare farming scenarios', color: 'var(--agrios-soil-700)', risk: null },
+            { href: `/farm/${farmId}/regenerative`, icon: Repeat2, label: 'Regenerative Score', desc: `${score.total}/100 · ${score.categories.soilHealth.status}`, color: 'var(--agrios-green-400)', risk: null },
+            { href: `/farm/${farmId}/roadmap`, icon: MapPin, label: '90-Day Roadmap', desc: 'AI regenerative action plan', color: 'var(--agrios-green-500)', risk: null },
             { href: '/agrimesh', icon: Globe, label: 'AgriMesh', desc: 'BRICS knowledge exchange', color: 'var(--agrios-sky-600)', risk: null },
           ].map((tile, i) => (
             <Link key={i} href={tile.href} style={{ textDecoration: 'none' }}>
@@ -100,7 +172,7 @@ export default function FarmTwinPage({ params }: { params: { id: string } }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <Satellite size={16} color="var(--agrios-sky-400)" />
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.95rem' }}>Current Vegetation Signal</span>
-              <span className="badge badge-demo" style={{ marginLeft: 'auto' }}>Demo</span>
+              {satellite.isDemo && <DemoBadge style={{ marginLeft: 'auto' }} />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div>
@@ -122,13 +194,13 @@ export default function FarmTwinPage({ params }: { params: { id: string } }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <Layers size={16} color="var(--agrios-soil-500)" />
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.95rem' }}>Soil Profile</span>
-              <span className="badge badge-demo" style={{ marginLeft: 'auto' }}>Demo</span>
+              {soil.isDemo && <DemoBadge style={{ marginLeft: 'auto' }} />}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {[
                 { label: 'pH', value: soil.ph, note: soil.ph > 7.5 ? '⚠ Slightly alkaline' : '✓ OK' },
                 { label: 'Organic Carbon', value: `${soil.organicCarbon} g/kg`, note: soil.organicCarbon < 1 ? '⚠ Low' : '✓ OK' },
-                { label: 'Texture', value: 'Loam', note: '' },
+                { label: 'Texture', value: soilTexture, note: '' },
                 { label: 'Bulk Density', value: `${soil.bulkDensity} kg/dm³`, note: '' },
               ].map((item, i) => (
                 <div key={i} style={{ padding: '10px', background: 'var(--surface-muted)', borderRadius: 'var(--radius-md)' }}>
@@ -138,10 +210,11 @@ export default function FarmTwinPage({ params }: { params: { id: string } }) {
                 </div>
               ))}
             </div>
-            <div className="data-source-label" style={{ marginTop: '12px' }}><Info size={11} /> Source: SoilGrids · Demo Data</div>
+            <div className="data-source-label" style={{ marginTop: '12px' }}><Info size={11} /> Source: {soil.source === 'demo' ? 'Demo Data' : 'SoilGrids'}</div>
           </div>
         </div>
       </div>
     </AppShell>
   );
 }
+

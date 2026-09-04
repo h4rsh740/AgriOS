@@ -7,7 +7,7 @@
 // ============================================================
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { FarmContext } from '@/types';
+import { FarmContext, Farm } from '@/types';
 import { DEMO_FARM, DEMO_WEATHER, DEMO_SOIL, DEMO_SATELLITE } from '@/lib/demo/demoData';
 
 export type FarmContextState = {
@@ -26,41 +26,69 @@ export function useFarmContext(farmId: string): FarmContextState {
     setLoading(true);
     setError(null);
     try {
-      // Use demo farm for now; in production, fetch from Firestore by farmId
-      const farm = farmId === 'demo-farm-001' ? DEMO_FARM : {
-        ...DEMO_FARM,
-        id: farmId,
-        name: `Farm ${farmId.slice(0, 6)}`,
-      };
+      let farm: Farm = DEMO_FARM;
+      let fromLiveFarm = false;
+
+      // Try resolving farm from Firestore or local storage if not demo-farm-001
+      if (farmId && farmId !== 'demo-farm-001') {
+        try {
+          const { getFarm } = await import('@/lib/firebase/firestore');
+          const firestoreFarm = await getFarm(farmId);
+          if (firestoreFarm) {
+            farm = firestoreFarm;
+            fromLiveFarm = true;
+          }
+        } catch {
+          // If Firestore is unconfigured or fails, check localStorage for locally created farm
+          if (typeof window !== 'undefined') {
+            const savedFarms = localStorage.getItem('agrios_local_farms');
+            if (savedFarms) {
+              try {
+                const parsed = JSON.parse(savedFarms) as Farm[];
+                const found = parsed.find(f => f.id === farmId);
+                if (found) {
+                  farm = found;
+                  fromLiveFarm = true;
+                }
+              } catch {
+                // ignore localStorage parse error
+              }
+            }
+          }
+        }
+      }
+
+      if (!fromLiveFarm && farmId !== 'demo-farm-001') {
+        farm = {
+          ...DEMO_FARM,
+          id: farmId,
+          name: `Farm ${farmId.slice(0, 6)}`,
+        };
+      }
 
       const lat = farm.location.lat;
       const lng = farm.location.lng;
 
       // Fetch all data sources in parallel — each falls back independently
       const [weatherRes, soilRes, satelliteRes] = await Promise.allSettled([
-        fetch('/api/weather', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lng }),
-        }).then(r => r.ok ? r.json() : null),
-
-        fetch('/api/soil', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lng }),
-        }).then(r => r.ok ? r.json() : null),
-
-        fetch(`/api/satellite?farmId=${farmId}&lat=${lat}&lng=${lng}`)
-          .then(r => r.ok ? r.json() : null),
+        fetch(`/api/weather?lat=${lat}&lng=${lng}`).then(r => r.ok ? r.json() : null),
+        fetch(`/api/soil?lat=${lat}&lng=${lng}`).then(r => r.ok ? r.json() : null),
+        fetch(`/api/satellite?farmId=${farmId}&lat=${lat}&lng=${lng}`).then(r => r.ok ? r.json() : null),
       ]);
 
-      const weather = weatherRes.status === 'fulfilled' && weatherRes.value ? weatherRes.value : DEMO_WEATHER;
-      const soil = soilRes.status === 'fulfilled' && soilRes.value ? soilRes.value : DEMO_SOIL;
-      const satellite = satelliteRes.status === 'fulfilled' && satelliteRes.value ? satelliteRes.value : DEMO_SATELLITE;
+      const weather = weatherRes.status === 'fulfilled' && weatherRes.value ? weatherRes.value : { ...DEMO_WEATHER, isDemo: true };
+      const soil = soilRes.status === 'fulfilled' && soilRes.value ? soilRes.value : { ...DEMO_SOIL, isDemo: true, source: 'demo' as const };
+      const satellite = satelliteRes.status === 'fulfilled' && satelliteRes.value ? satelliteRes.value : { ...DEMO_SATELLITE, farmId, isDemo: true };
 
-      const isDemo = weather === DEMO_WEATHER || soil === DEMO_SOIL || satellite === DEMO_SATELLITE;
+      const isDemo = !fromLiveFarm || weather.isDemo || soil.isDemo || satellite.isDemo;
 
-      setCtx({ farm, weather, soil, satellite, isDemo });
+      setCtx({
+        farm,
+        weather,
+        soil,
+        satellite,
+        isDemo,
+      });
     } catch (err) {
       console.error('[useFarmContext]', err);
       setError('Failed to load farm data — showing demo context.');
@@ -76,7 +104,13 @@ export function useFarmContext(farmId: string): FarmContextState {
     }
   }, [farmId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    // Defer past the synchronous effect boundary so the initial render
+    // isn't cascaded (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(() => { if (!cancelled) void load(); });
+    return () => { cancelled = true; };
+  }, [load]);
 
   return { ctx, loading, error, refresh: load };
 }

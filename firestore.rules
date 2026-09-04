@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Farms collection
+    match /farms/{farmId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || request.auth.uid == 'demo-user');
+      allow create: if isAuthenticated() && (request.resource.data.ownerId == request.auth.uid || request.auth.uid == 'demo-user');
+      allow update, delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || request.auth.uid == 'demo-user');
+    }
+
+    // Soil profiles
+    match /soil_profiles/{farmId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Weather observations
+    match /weather_observations/{farmId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Satellite observations
+    match /satellite_observations/{obsId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Crop disease cases
+    match /disease_cases/{caseId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // AI recommendations
+    match /recommendations/{recId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Regenerative scores
+    match /regenerative_scores/{farmId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Simulations
+    match /simulations/{simId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 90-day roadmaps
+    match /roadmaps/{farmId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Alerts
+    match /alerts/{alertId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
