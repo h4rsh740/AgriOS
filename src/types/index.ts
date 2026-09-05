@@ -11,6 +11,7 @@ export interface FarmLocation {
   district?: string;
   state?: string;
   country: string;
+  boundary?: FarmBoundary;
 }
 
 export interface FarmBoundary {
@@ -170,11 +171,20 @@ export interface AIAction {
   effort: 'low' | 'medium' | 'high';
 }
 
+export interface SensorContradiction {
+  sourceA: string;
+  sourceB: string;
+  conflict: string;
+  severity: 'low' | 'medium' | 'high';
+  resolutionAdvice: string;
+}
+
 export interface AIRecommendation {
   summary: string;
   riskLevel: RiskLevel;
   confidence: number; // 0–100
   evidence: AIEvidence[];
+  contradictions?: SensorContradiction[];
   observations: string[];
   recommendations: string[];
   actionsToday: AIAction[];

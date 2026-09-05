@@ -64,7 +64,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [farmerName, setFarmerName] = useState(user?.displayName || '');
   const [farmName, setFarmName] = useState('');
-  const [location, setLocation] = useState<Pick<FarmLocation, 'lat' | 'lng' | 'address' | 'state' | 'country'>>({
+  const [location, setLocation] = useState<Pick<FarmLocation, 'lat' | 'lng' | 'address' | 'state' | 'country' | 'boundary'>>({
     lat: 26.85, lng: 80.95, address: '', state: 'Uttar Pradesh', country: 'India',
   });
   const [areaHa, setAreaHa] = useState('');
@@ -103,7 +103,9 @@ export default function OnboardingPage() {
         address: location.address || undefined,
         state: location.state || undefined,
         country: location.country,
+        boundary: location.boundary || undefined,
       },
+      boundary: location.boundary || undefined,
       areaHa: areaNum,
       crop,
       cropStage,

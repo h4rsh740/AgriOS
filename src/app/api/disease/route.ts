@@ -81,6 +81,11 @@ RULES: Be honest about uncertainty. If no image is provided, say so. Never recom
       assessment = getDemoAssessment(farmContext);
     }
 
+    const uploadedImageUrl = (formData.get('imageUrl') as string | null) || farmContext.imageUrl;
+    if (uploadedImageUrl) {
+      assessment.imageUrl = uploadedImageUrl;
+    }
+
     return NextResponse.json(assessment);
   } catch (err) {
     console.error('[Disease API]', err);

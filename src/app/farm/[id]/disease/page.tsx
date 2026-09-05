@@ -1,7 +1,7 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
 import { useState, useRef, use } from 'react';
-import { Microscope, Upload, X, AlertTriangle, Info, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Microscope, Upload, X, AlertTriangle, Info, Check, ChevronDown, ChevronUp, Cloud } from 'lucide-react';
 import { DiseaseAssessment } from '@/types';
 import { useFarmContext } from '@/hooks/useFarmContext';
 
@@ -12,6 +12,7 @@ export default function DiseasePage({ params }: { params: Promise<{ id: string }
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
   const [result, setResult] = useState<DiseaseAssessment | null>(null);
   const [error, setError] = useState('');
   const [showEvidence, setShowEvidence] = useState(false);
@@ -29,10 +30,23 @@ export default function DiseasePage({ params }: { params: Promise<{ id: string }
   }
 
   async function handleAnalyze() {
-    setLoading(true); setError(''); setResult(null);
+    setLoading(true); setError(''); setResult(null); setStatusMsg('Initializing analysis…');
     try {
       const formData = new FormData();
-      if (image) formData.append('image', image);
+      if (image) {
+        formData.append('image', image);
+        // Upload photo to Firebase Cloud Storage (farms/{farmId}/disease/{timestamp}.jpg)
+        try {
+          setStatusMsg('Uploading leaf photo to Firebase Cloud Storage…');
+          const { uploadDiseaseImage } = await import('@/lib/firebase/storage');
+          const cloudUrl = await uploadDiseaseImage(farmId, image);
+          if (cloudUrl) {
+            formData.append('imageUrl', cloudUrl);
+          }
+        } catch (storageErr) {
+          console.warn('[Disease Page] Cloud storage upload skipped:', storageErr);
+        }
+      }
       
       const contextData = {
         farmId,
@@ -45,6 +59,7 @@ export default function DiseasePage({ params }: { params: Promise<{ id: string }
 
       formData.append('context', JSON.stringify(contextData));
 
+      setStatusMsg('Investigating with Gemini multimodal AI…');
       const res = await fetch('/api/disease', { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Analysis failed');
       const data: DiseaseAssessment = await res.json();
@@ -65,6 +80,7 @@ export default function DiseasePage({ params }: { params: Promise<{ id: string }
       setError('Disease analysis failed. Please try again.');
     } finally {
       setLoading(false);
+      setStatusMsg('');
     }
   }
 
@@ -157,7 +173,7 @@ export default function DiseasePage({ params }: { params: Promise<{ id: string }
               style={{ width: '100%', justifyContent: 'center', padding: '14px' }}
             >
               {loading ? (
-                <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Gemini is investigating...</>
+                <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> {statusMsg || 'Gemini is investigating...'}</>
               ) : (
                 <><Microscope size={18} /> {image ? 'Analyze Crop Photo' : 'Analyze Without Photo'}</>
               )}
@@ -179,6 +195,16 @@ export default function DiseasePage({ params }: { params: Promise<{ id: string }
                   </div>
                   <span className={`badge ${severityConfig[result.severity].cls}`}>{severityConfig[result.severity].label}</span>
                 </div>
+
+                {result.imageUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--agrios-green-50)', border: '1px solid var(--agrios-green-200)', borderRadius: 'var(--radius-sm)', marginBottom: '16px', fontSize: '0.78rem' }}>
+                    <Cloud size={14} color="var(--agrios-green-600)" />
+                    <span>Archived in Firebase Cloud Storage:</span>
+                    <a href={result.imageUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--agrios-green-700)', fontWeight: 600, textDecoration: 'underline' }}>
+                      View Original
+                    </a>
+                  </div>
+                )}
 
                 {/* Confidence */}
                 <div style={{ marginBottom: '16px' }}>

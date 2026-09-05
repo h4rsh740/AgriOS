@@ -3,10 +3,10 @@
 // Coordinates 9 domain agents + Chief Agricultural Orchestrator
 // Powered by Google Gemini with strict structured output & safety
 // ============================================================
-import { FarmContext, AIEvidence, AIRecommendation } from '@/types';
+import type { FarmContext, AIEvidence, AIRecommendation } from '@/types';
 import { generateJSON, generateText, AGRI_SYSTEM_PROMPT } from './gemini';
-import { getCropAgronomy } from '@/lib/services/agriculture/cropService';
-import { matchFarmerSchemes } from '@/lib/services/agriculture/schemeService';
+import { getCropAgronomy } from '../services/agriculture/cropService';
+import { matchFarmerSchemes } from '../services/agriculture/schemeService';
 
 // ============================================================
 // 1. DOMAIN AGENTS
@@ -128,7 +128,14 @@ export function runSchemeAgent(ctx: FarmContext): AIEvidence[] {
 }
 
 // ============================================================
-// 2. CHIEF AGENT ORCHESTRATOR
+// 2. SENSOR CONTRADICTION & DISPUTE DETECTION
+// ============================================================
+
+export { detectSensorContradictions } from './contradictionDetector';
+import { detectSensorContradictions } from './contradictionDetector';
+
+// ============================================================
+// 3. CHIEF AGENT ORCHESTRATOR
 // ============================================================
 
 export async function orchestrateAgriIntelligence(ctx: FarmContext): Promise<AIRecommendation> {
@@ -139,13 +146,14 @@ export async function orchestrateAgriIntelligence(ctx: FarmContext): Promise<AIR
     const soilEv = runSoilHealthAgent(ctx);
     const geoEv = runGeospatialAgent(ctx);
     const schemeEv = runSchemeAgent(ctx);
+    const contradictions = detectSensorContradictions(ctx);
 
     const allEvidence = [...cropEv, ...weatherEv, ...soilEv, ...geoEv, ...schemeEv];
 
     const prompt = `${AGRI_SYSTEM_PROMPT}
 
 You are the Chief Agricultural Intelligence Orchestrator for AgriOS.
-Synthesize the domain agent findings and telemetry into a cohesive agricultural intelligence brief.
+Synthesize the domain agent findings, sensor telemetry, and detected data contradictions into a cohesive agricultural intelligence brief.
 
 FARM PROFILE:
 ${JSON.stringify({
@@ -189,6 +197,9 @@ ${ctx.satellite ? JSON.stringify({
 DOMAIN SPECIALIST EVIDENCE TRAIL:
 ${JSON.stringify(allEvidence, null, 2)}
 
+DETECTED SENSOR CONTRADICTIONS & DISPUTES:
+${JSON.stringify(contradictions, null, 2)}
+
 Produce a valid JSON object matching this schema exactly:
 {
   "summary": "Clear, practical 2-3 sentence overview written in farmer-friendly language",
@@ -217,9 +228,23 @@ Produce a valid JSON object matching this schema exactly:
 
     const result = await generateJSON<AIRecommendation>(prompt);
 
+    // Compute confidence penalty for conflicting sensor signals
+    const penalty = contradictions.reduce(
+      (sum, c) => sum + (c.severity === 'high' ? 12 : c.severity === 'medium' ? 6 : 3),
+      0
+    );
+    const baseConfidence = result.confidence || 75;
+    const finalConfidence = Math.max(20, Math.min(95, baseConfidence - penalty));
+
+    const contradictionWarnings = contradictions.map(
+      (c) => `[Dispute Detected] ${c.conflict} Advice: ${c.resolutionAdvice}`
+    );
+
     return {
       ...result,
-      confidence: Math.min(100, Math.max(20, result.confidence || 75)),
+      confidence: finalConfidence,
+      contradictions,
+      warnings: [...(result.warnings || []), ...contradictionWarnings],
       evidence: result.evidence && result.evidence.length > 0 ? result.evidence : allEvidence,
       generatedAt: new Date().toISOString(),
       disclaimer: 'AI-assisted assessment. Field verification recommended before high-cost or chemical applications.',
@@ -275,10 +300,22 @@ Provide an expert, empathetic, actionable answer. If field verification or local
 }
 
 function getHonestFallbackRecommendation(ctx: FarmContext): AIRecommendation {
+  const contradictions = detectSensorContradictions(ctx);
+  const penalty = contradictions.reduce(
+    (sum, c) => sum + (c.severity === 'high' ? 12 : c.severity === 'medium' ? 6 : 3),
+    0
+  );
+  const baseConfidence = 65;
+  const finalConfidence = Math.max(20, baseConfidence - penalty);
+  const contradictionWarnings = contradictions.map(
+    (c) => `[Dispute Detected] ${c.conflict} Advice: ${c.resolutionAdvice}`
+  );
+
   return {
     summary: `Your ${ctx.farm.crop} is in ${ctx.farm.cropStage.replace('_', ' ')} stage in ${ctx.farm.location.state || 'your region'}. Real-time Gemini inference is temporarily running in offline mode. Standard agronomic safety guidelines apply.`,
     riskLevel: 'medium',
-    confidence: 65,
+    confidence: finalConfidence,
+    contradictions,
     evidence: [
       { source: 'crop_stage', finding: `${ctx.farm.crop} at ${ctx.farm.cropStage} stage` },
       ...(ctx.weather ? [{ source: 'weather' as const, finding: `${ctx.weather.current.temperature}°C, humidity ${ctx.weather.current.humidity}%` }] : []),
@@ -301,7 +338,7 @@ function getHonestFallbackRecommendation(ctx: FarmContext): AIRecommendation {
     regenerativeActions: [
       { action: 'Plan post-harvest crop residue retention or mulching', reason: 'Increases soil organic matter and water holding capacity', urgency: 'this_month', effort: 'medium' },
     ],
-    warnings: ['Offline fallback report — verify field conditions manually.'],
+    warnings: ['Offline fallback report — verify field conditions manually.', ...contradictionWarnings],
     needsFieldVerification: true,
     dataSources: ['Open-Meteo', 'SoilGrids'],
     disclaimer: 'AI-assisted assessment. Field verification recommended.',

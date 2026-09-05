@@ -1,8 +1,8 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
 import { useState, use } from 'react';
-import { Zap, Info, ChevronDown, ChevronUp, AlertTriangle, Check, Loader2, Database, Wifi } from 'lucide-react';
-import { AIRecommendation } from '@/types';
+import { Zap, Info, ChevronDown, ChevronUp, AlertTriangle, Check, Loader2, Database, Wifi, MessageSquare, Send, Globe, ShieldAlert } from 'lucide-react';
+import { AIRecommendation, AIEvidence } from '@/types';
 import { useFarmContext } from '@/hooks/useFarmContext';
 import { DEMO_RECOMMENDATION } from '@/lib/demo/demoData';
 
@@ -13,6 +13,34 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
   const [loading, setLoading] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
   const [isLive, setIsLive] = useState(false);
+
+  // Interactive Q&A State (PDF Section 7 - Demo Moment 2:15)
+  const [question, setQuestion] = useState('');
+  const [answering, setAnswering] = useState(false);
+  const [qnaAnswer, setQnaAnswer] = useState<{ answer: string; evidence: AIEvidence[]; source: string } | null>(null);
+  const [lang, setLang] = useState<'en' | 'hi'>('en');
+
+  async function handleAsk(queryText?: string) {
+    const q = (queryText || question).trim();
+    if (!q || !ctx) return;
+    setAnswering(true);
+    try {
+      const res = await fetch('/api/ai/advisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ctx, question: q, language: lang }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQnaAnswer(data);
+        if (queryText) setQuestion(queryText);
+      }
+    } catch (err) {
+      console.error('[Q&A Error]', err);
+    } finally {
+      setAnswering(false);
+    }
+  }
 
   async function handleRefresh() {
     if (!ctx) return;
@@ -73,6 +101,107 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '20px' }}>
           {/* Main insight */}
           <div>
+            {/* Interactive Q&A Card (PDF Demo 2:15: "What should I do today and why?") */}
+            <div className="card" style={{ marginBottom: '20px', border: '1.5px solid var(--agrios-green-500)', background: 'white' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={17} color="var(--agrios-green-600)" />
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Ask Chief Agricultural Agent</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Globe size={13} color="var(--text-muted)" />
+                  <select
+                    value={lang}
+                    onChange={(e) => setLang(e.target.value as 'en' | 'hi')}
+                    style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-default)', background: 'var(--surface-muted)' }}
+                  >
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी (Hindi)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Quick suggestion pills from PDF Demo */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                {[
+                  'What should I do today and why?',
+                  'Should I irrigate given the 3-day rainfall forecast?',
+                  'What foliar diseases should I inspect for?',
+                ].map((q, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAsk(q)}
+                    disabled={answering || !ctx}
+                    className="btn btn-outline btn-sm"
+                    style={{ fontSize: '0.72rem', padding: '4px 8px', borderRadius: '12px', background: 'var(--surface-muted)' }}
+                  >
+                    💡 {q}
+                  </button>
+                ))}
+              </div>
+
+              {/* Form input */}
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleAsk(); }}
+                style={{ display: 'flex', gap: '8px' }}
+              >
+                <input
+                  type="text"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="Ask anything about your crop, irrigation, weather, or soil..."
+                  disabled={answering || !ctx}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-default)',
+                    fontSize: '0.85rem',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={answering || !question.trim() || !ctx}
+                  className="btn btn-primary btn-sm"
+                  style={{ gap: '6px', minWidth: '85px', justifyContent: 'center' }}
+                >
+                  {answering ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <><Send size={13} /> Ask</>}
+                </button>
+              </form>
+
+              {/* Live Answer Box */}
+              {qnaAnswer && (() => {
+                let displayText = qnaAnswer.answer;
+                try {
+                  const clean = qnaAnswer.answer.replace(/```json/g, '').replace(/```/g, '').trim();
+                  const parsed = JSON.parse(clean);
+                  if (parsed.summary) displayText = parsed.summary;
+                } catch { /* use raw */ }
+
+                return (
+                  <div style={{ marginTop: '16px', padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--agrios-green-50)', border: '1px solid var(--agrios-green-200)', animation: 'fadeIn 0.3s ease' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--agrios-green-800)', textTransform: 'uppercase' }}>Gemini Agent Response</span>
+                      <span className="badge badge-green" style={{ fontSize: '0.62rem' }}>{qnaAnswer.source}</span>
+                    </div>
+                    <p style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-primary)', margin: '0 0 10px 0' }}>
+                      {displayText}
+                    </p>
+                    {qnaAnswer.evidence && qnaAnswer.evidence.length > 0 && (
+                      <div style={{ borderTop: '1px dashed var(--agrios-green-300)', paddingTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {qnaAnswer.evidence.map((ev, i) => (
+                          <span key={i} style={{ fontSize: '0.7rem', background: 'white', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--agrios-green-300)', color: 'var(--agrios-green-800)' }}>
+                            📌 {ev.finding}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Summary card */}
             <div className="card card-dark" style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -154,6 +283,34 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
 
           {/* Action panels */}
           <div>
+            {/* Sensor Contradictions & Telemetry Disputes */}
+            {rec.contradictions && rec.contradictions.length > 0 && (
+              <div style={{ background: '#fef2f2', border: '1.5px solid #f87171', borderRadius: 'var(--radius-md)', padding: '14px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <ShieldAlert size={16} color="#dc2626" />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Telemetry Dispute Detected ({rec.contradictions.length})
+                    </span>
+                  </div>
+                  <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Confidence Penalized</span>
+                </div>
+                {rec.contradictions.map((c, i) => (
+                  <div key={i} style={{ marginBottom: i < (rec.contradictions?.length ?? 0) - 1 ? '10px' : '0', padding: '10px', background: 'white', borderRadius: 'var(--radius-sm)', border: '1px solid #fecaca' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                      <span className="badge" style={{ fontSize: '0.62rem', background: '#fee2e2', color: '#991b1b' }}>Source A: {c.sourceA}</span>
+                      <span className="badge" style={{ fontSize: '0.62rem', background: '#fee2e2', color: '#991b1b' }}>Source B: {c.sourceB}</span>
+                      <span className={`badge ${c.severity === 'high' ? 'badge-red' : 'badge-amber'}`} style={{ fontSize: '0.62rem' }}>{c.severity} severity</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1f2937', marginBottom: '4px' }}>{c.conflict}</div>
+                    <div style={{ fontSize: '0.74rem', color: '#4b5563', lineHeight: 1.5 }}>
+                      <strong>Resolution:</strong> {c.resolutionAdvice}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Warnings */}
             {rec.warnings.length > 0 && (
               <div style={{ background: 'var(--agrios-amber-100)', border: '1px solid var(--agrios-amber-400)', borderRadius: 'var(--radius-md)', padding: '14px', marginBottom: '16px' }}>

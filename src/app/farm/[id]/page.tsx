@@ -16,6 +16,9 @@ import {
 import { useFarmContext } from '@/hooks/useFarmContext';
 import { DEMO_WEATHER, DEMO_SOIL, DEMO_SATELLITE, DEMO_REGENERATIVE_SCORE } from '@/lib/demo/demoData';
 import { LoadingCard, ErrorCard, DemoBadge } from '@/components/ui/DataState';
+import HistoricalPriceTrendsCard from '@/components/dashboard/HistoricalPriceTrendsCard';
+import RegionalPeerFarmsCard from '@/components/dashboard/RegionalPeerFarmsCard';
+import { getAgroClimaticZone, getFAOSTATBenchmark } from '@/lib/services/agriculture/geospatialService';
 
 export default function FarmTwinPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: farmId } = use(params);
@@ -213,6 +216,76 @@ export default function FarmTwinPage({ params }: { params: Promise<{ id: string 
             <div className="data-source-label" style={{ marginTop: '12px' }}><Info size={11} /> Source: {soil.source === 'demo' ? 'Demo Data' : 'SoilGrids'}</div>
           </div>
         </div>
+
+        {/* BigQuery Historical Mandi Analytics */}
+        <HistoricalPriceTrendsCard crop={farm.crop} state={farm.location.state} />
+
+        {/* Regional Peer Farms & Cohort Benchmarking */}
+        <RegionalPeerFarmsCard farmId={farm.id} crop={farm.crop} state={farm.location.state} practice={farm.farmingPractice} />
+
+        {/* ICAR Agro-Climatic Zone & FAOSTAT Benchmark Layer */}
+        {(() => {
+          const agroZone = getAgroClimaticZone(farm.location.state);
+          const faoBenchmark = getFAOSTATBenchmark(farm.crop);
+          return (
+            <div className="card" style={{ marginTop: '24px', background: 'var(--surface)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Globe size={18} color="var(--agrios-green-600)" />
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
+                    ICAR Agro-Climatic Zoning & FAOSTAT Benchmark Layer
+                  </h3>
+                </div>
+                <span className="badge badge-soil" style={{ fontSize: '0.65rem' }}>
+                  Zone {agroZone.zoneNumber}: {agroZone.zoneName}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                {/* Agro-Climatic Zone Details */}
+                <div style={{ background: 'var(--surface-muted)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--agrios-green-700)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                    National Agro-Climatic Context (ICAR / Planning Commission)
+                  </div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>{agroZone.zoneName}</div>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '8px' }}>
+                    <div><strong>Climate:</strong> {agroZone.climateClassification}</div>
+                    <div><strong>Precipitation Range:</strong> {agroZone.annualRainfallRangeMm[0]}–{agroZone.annualRainfallRangeMm[1]} mm/year</div>
+                    <div><strong>Major Soil Order:</strong> {agroZone.majorSoilTypes.join(', ')}</div>
+                    <div><strong>Research Hub:</strong> {agroZone.icarResearchCenter}</div>
+                  </div>
+                  <div className="data-source-label" style={{ fontSize: '0.68rem' }}>
+                    <Info size={11} /> {agroZone.isroBhuvanTheme}
+                  </div>
+                </div>
+
+                {/* FAOSTAT Yield Benchmark & Gap */}
+                <div style={{ background: 'var(--surface-muted)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--agrios-sky-600)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                    FAOSTAT Global Yield Gap Analysis ({faoBenchmark.crop})
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ padding: '8px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>National Avg</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{faoBenchmark.nationalAverageYieldQHa} q/ha</div>
+                    </div>
+                    <div style={{ padding: '8px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Global Avg</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{faoBenchmark.globalAverageYieldQHa} q/ha</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '8px' }}>
+                    <div><strong>Leading Benchmark:</strong> {faoBenchmark.topProducingNation.country} ({faoBenchmark.topProducingNation.averageYieldQHa} q/ha)</div>
+                    <div><strong>Estimated Yield Gap:</strong> {faoBenchmark.potentialYieldGapPercent}% recoverable with precision nutrient & irrigation management.</div>
+                  </div>
+                  <div className="data-source-label" style={{ fontSize: '0.68rem' }}>
+                    <Info size={11} /> Source: {faoBenchmark.sourceDataset} ({faoBenchmark.reportingYear})
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </AppShell>
   );

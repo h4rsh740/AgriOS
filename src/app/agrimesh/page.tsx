@@ -1,7 +1,7 @@
 'use client';
 import AppShell from '@/components/layout/AppShell';
 import { useEffect, useState } from 'react';
-import { Globe, Zap, Users, Share2, Info, RefreshCw } from 'lucide-react';
+import { Globe, Zap, Users, Share2, Info, RefreshCw, Plus, X, CheckCircle, Sparkles } from 'lucide-react';
 import { DEMO_AGRIMESH_NODES } from '@/lib/demo/demoData';
 
 type NodeStatus = 'active' | 'syncing' | 'offline';
@@ -117,9 +117,39 @@ function NodeCard({ node, selected, onSelect }: {
 }
 
 export default function AgriMeshPage() {
-  const nodes: AgriMeshNode[] = DEMO_AGRIMESH_NODES;
+  const [nodes, setNodes] = useState<AgriMeshNode[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('agrios_agrimesh_custom_practices') || '[]');
+        if (saved.length > 0) {
+          return DEMO_AGRIMESH_NODES.map((n) =>
+            n.countryCode === 'IN'
+              ? {
+                  ...n,
+                  contributionsCount: n.contributionsCount + saved.length,
+                  contributions: [...saved, ...n.contributions],
+                }
+              : n
+          );
+        }
+      } catch (e) {
+        console.warn('Failed to load cached mesh practices:', e);
+      }
+    }
+    return DEMO_AGRIMESH_NODES;
+  });
   const [selected, setSelected] = useState<AgriMeshNode | null>(nodes[0]);
   const [liveLog, setLiveLog] = useState<string[]>([]);
+
+  // Share Practice Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [category, setCategory] = useState<ContribType>('practice');
+  const [title, setTitle] = useState('');
+  const [crop, setCrop] = useState('Wheat');
+  const [region, setRegion] = useState('Uttar Pradesh (Central Zone)');
+  const [description, setDescription] = useState('');
+  const [formError, setFormError] = useState('');
+  const [banner, setBanner] = useState('');
 
   useEffect(() => {
     // Simulate live feed
@@ -135,21 +165,82 @@ export default function AgriMeshPage() {
     let i = 0;
     const interval = setInterval(() => {
       if (i < messages.length) {
-        setLiveLog(prev => [messages[i], ...prev].slice(0, 6));
+        setLiveLog((prev) => [messages[i], ...prev].slice(0, 6));
         i++;
       }
     }, 2200);
     return () => clearInterval(interval);
   }, []);
 
+  function handleShareSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || title.trim().length < 4) {
+      setFormError('Please provide a descriptive title (at least 4 characters).');
+      return;
+    }
+    if (!description.trim() || description.trim().length < 15) {
+      setFormError('Please describe the agronomic technique or observation (at least 15 characters).');
+      return;
+    }
+
+    const newContrib: AgriMeshContrib = {
+      type: category,
+      title: title.trim(),
+      description: description.trim(),
+      crop: crop.trim() || undefined,
+      region: region.trim() || undefined,
+      sharedAt: new Date().toISOString(),
+    };
+
+    // Update India node with new contribution
+    setNodes((prev) => {
+      const updated = prev.map((n) => {
+        if (n.countryCode === 'IN') {
+          return {
+            ...n,
+            contributionsCount: n.contributionsCount + 1,
+            contributions: [newContrib, ...n.contributions],
+            lastSync: new Date().toISOString(),
+          };
+        }
+        return n;
+      });
+      const inNode = updated.find((n) => n.countryCode === 'IN');
+      if (selected?.countryCode === 'IN' && inNode) {
+        setSelected(inNode);
+      }
+      return updated;
+    });
+
+    // Add to top of live log
+    setLiveLog((prev) => [`🇮🇳 India node shared: ${newContrib.title} (${newContrib.region})`, ...prev].slice(0, 6));
+
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('agrios_agrimesh_custom_practices') || '[]');
+        existing.unshift(newContrib);
+        localStorage.setItem('agrios_agrimesh_custom_practices', JSON.stringify(existing.slice(0, 20)));
+      } catch (err) {
+        console.warn('Failed to cache practice locally:', err);
+      }
+    }
+
+    setShowModal(false);
+    setTitle('');
+    setDescription('');
+    setFormError('');
+    setBanner(`Broadcasted "${newContrib.title}" to AgriMesh BRICS network!`);
+  }
+
   const totalContribs = nodes.reduce((s, n) => s + n.contributionsCount, 0);
-  const activeNodes = nodes.filter(n => n.status === 'active').length;
+  const activeNodes = nodes.filter((n) => n.status === 'active').length;
 
   return (
     <AppShell>
       <div style={{ padding: '28px', minHeight: '100vh' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
               <Globe size={22} color="var(--agrios-sky-600)" />
@@ -159,7 +250,15 @@ export default function AgriMeshPage() {
               Federated agricultural intelligence · Sovereign · Privacy-preserving · BRICS Nations
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Plus size={15} /> Share a Practice
+            </button>
             <span className="badge badge-demo">Simulated for Demo</span>
             <span className="badge badge-green">
               <div className="dot dot-green dot-pulse" />
@@ -167,6 +266,36 @@ export default function AgriMeshPage() {
             </span>
           </div>
         </div>
+
+        {banner && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              background: 'var(--agrios-green-50)',
+              border: '1px solid var(--agrios-green-200)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '16px',
+              color: 'var(--agrios-green-800)',
+              fontSize: '0.85rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle size={16} color="var(--agrios-green-600)" />
+              <span>{banner}</span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ padding: '2px 6px', height: 'auto' }}
+              onClick={() => setBanner('')}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
 
         {/* Stats bar */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
@@ -291,6 +420,141 @@ export default function AgriMeshPage() {
           <Info size={12} color="var(--text-muted)" />
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>All AgriMesh nodes are simulated for demonstration purposes. The actual network would require bilateral agreements between participating nations.</span>
         </div>
+
+        {/* Share Practice Modal */}
+        {showModal && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(10, 46, 26, 0.65)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+            }}
+            onClick={() => setShowModal(false)}
+          >
+            <div
+              className="card"
+              style={{
+                width: '100%',
+                maxWidth: '520px',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+                position: 'relative',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={18} color="var(--agrios-green-600)" />
+                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Share Practice to AgriMesh</h3>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowModal(false)}
+                  style={{ padding: '4px' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
+                Broadcast sovereign agronomic insights, disease patterns, or microclimate adaptations to the federated BRICS knowledge network.
+              </p>
+
+              {formError && (
+                <div style={{ padding: '8px 12px', background: '#fee2e2', border: '1px solid #f87171', borderRadius: 'var(--radius-sm)', color: '#991b1b', fontSize: '0.78rem', marginBottom: '14px' }}>
+                  {formError}
+                </div>
+              )}
+
+              <form onSubmit={handleShareSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label className="label" style={{ fontSize: '0.75rem' }}>Intelligence Category</label>
+                  <select
+                    className="input"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as ContribType)}
+                  >
+                    <option value="practice">Agronomic Practice / Innovation</option>
+                    <option value="disease_pattern">Early Disease / Pest Pattern</option>
+                    <option value="climate_insight">Microclimate & Drought Resilience</option>
+                    <option value="crop_model">Crop Phenology & Yield Heuristic</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label" style={{ fontSize: '0.75rem' }}>Practice Title</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g. Biochar furrow amendment for moisture retention"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>Crop / Commodity</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g. Wheat, Rice, Mustard"
+                      value={crop}
+                      onChange={(e) => setCrop(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>Agro-Climatic Region</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g. Uttar Pradesh (Central)"
+                      value={region}
+                      onChange={(e) => setRegion(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label" style={{ fontSize: '0.75rem' }}>Detailed Agronomic Insight</label>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    placeholder="Explain the step-by-step technique, soil condition, or observed outcome..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                  >
+                    Broadcast to Network
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );
