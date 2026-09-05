@@ -4,10 +4,10 @@
 // Initializes lazily to prevent SSR/build-time crashes when
 // Firebase is not configured (e.g., demo mode, CI builds).
 // ============================================================
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getStorage, FirebaseStorage } from 'firebase/storage';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const isFirebaseConfigured =
   typeof process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'string' &&
