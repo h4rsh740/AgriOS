@@ -59,6 +59,21 @@ const BENCHMARK_MANDI_PRICES: Record<string, MandiPriceRecord[]> = {
   ],
 };
 
+// Mapping common crop names to Agmarknet commodity naming conventions
+const COMMODITY_SYNONYMS: Record<string, string[]> = {
+  Rice: ['Paddy(Common)', 'Rice', 'Paddy(Dhan)'],
+  Paddy: ['Paddy(Common)', 'Rice', 'Paddy(Dhan)'],
+  Wheat: ['Wheat', 'Wheat(Gehun)'],
+  Mustard: ['Mustard', 'Sarson'],
+  Soybean: ['Soyabean', 'Soybean'],
+  Cotton: ['Cotton', 'Kapas'],
+  Maize: ['Maize', 'Makka'],
+  Potato: ['Potato'],
+  Onion: ['Onion'],
+  Tomato: ['Tomato'],
+  Groundnut: ['Groundnut'],
+};
+
 export async function fetchMandiPrices(crop: string, state?: string): Promise<MarketIntelligenceResponse> {
   const cacheKey = `${crop}-${state || 'all'}`.toLowerCase();
   const cached = marketCache.get(cacheKey);
@@ -70,16 +85,42 @@ export async function fetchMandiPrices(crop: string, state?: string): Promise<Ma
 
   if (apiKey) {
     try {
-      // Official data.gov.in Agmarknet Daily Mandi API
-      let url = `https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?api-key=${apiKey}&format=json&limit=20&filters[commodity]=${encodeURIComponent(crop)}`;
-      if (state) {
-        url += `&filters[state]=${encodeURIComponent(state)}`;
+      // Resolve possible Agmarknet commodity terms
+      const candidateCrops = COMMODITY_SYNONYMS[crop] || [crop];
+      let json: { records?: Record<string, string>[] } | null = null;
+
+      for (const candidate of candidateCrops) {
+        let url = `https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?api-key=${apiKey}&format=json&limit=25&filters[commodity]=${encodeURIComponent(candidate)}`;
+        if (state) {
+          url += `&filters[state]=${encodeURIComponent(state)}`;
+        }
+
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.records && Array.isArray(resData.records) && resData.records.length > 0) {
+            json = resData;
+            break;
+          }
+        }
       }
 
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.records && Array.isArray(json.records) && json.records.length > 0) {
+      // If state filter yielded 0 results, retry nationwide for candidate
+      if (!json) {
+        for (const candidate of candidateCrops) {
+          const url = `https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?api-key=${apiKey}&format=json&limit=25&filters[commodity]=${encodeURIComponent(candidate)}`;
+          const res = await fetch(url, { headers: { Accept: 'application/json' } });
+          if (res.ok) {
+            const resData = await res.json();
+            if (resData.records && Array.isArray(resData.records) && resData.records.length > 0) {
+              json = resData;
+              break;
+            }
+          }
+        }
+      }
+
+      if (json && json.records && json.records.length > 0) {
           const records: MandiPriceRecord[] = json.records.map((r: Record<string, string>) => ({
             state: r.state || state || 'India',
             district: r.district || '',
@@ -110,11 +151,10 @@ export async function fetchMandiPrices(crop: string, state?: string): Promise<Ma
           marketCache.set(cacheKey, { data: response, ts: Date.now() });
           return response;
         }
+      } catch (err) {
+        console.warn('[MarketService] Failed to query live data.gov.in API, using benchmark fallback:', err);
       }
-    } catch (err) {
-      console.warn('[MarketService] Failed to query live data.gov.in API, using benchmark fallback:', err);
     }
-  }
 
   // Graceful benchmark fallback with honest isDemo: true
   const fallbackRecords = BENCHMARK_MANDI_PRICES[crop] || BENCHMARK_MANDI_PRICES.Wheat;
