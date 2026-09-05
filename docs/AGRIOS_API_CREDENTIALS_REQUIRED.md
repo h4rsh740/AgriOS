@@ -68,8 +68,8 @@ CREDENTIAL REQUIRED: data.gov.in API Key
 ENVIRONMENT VARIABLE: DATA_GOV_IN_API_KEY
 WHERE TO GET IT: https://data.gov.in/ (Instant free registration for Indian citizens & developers)
 BILLING REQUIRED: No (100% Free Public Digital Good)
-CURRENT STATUS: 🟡 IMPLEMENTED (Active REST query implemented; benchmark dataset serves as labeled fallback)
-BLOCKED FEATURE: Live daily price updates for minor regional APMC mandis
+CURRENT STATUS: 🟢 CONFIGURED & VERIFIED LIVE in .env.local (Live Agmarknet streaming verified)
+BLOCKED FEATURE: None (Live commodity arrival data active)
 ```
 
 ---
