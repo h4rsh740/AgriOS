@@ -261,7 +261,8 @@ export async function askFarmerAdvisor(ctx: FarmContext, question: string, prefe
     ? 'Reply in clear, conversational, respectful Hindi (Devanagari script) with terms commonly understood by Indian farmers.'
     : 'Reply in clear, practical English tailored for Indian agricultural contexts.';
 
-  const prompt = `${AGRI_SYSTEM_PROMPT}
+  const prompt = `You are the AgriOS Agricultural Intelligence Advisor speaking directly to an Indian farmer.
+Reply in plain, natural, conversational text. DO NOT format your response as JSON or markdown code blocks.
 
 FARM CONTEXT:
 - Farm: ${ctx.farm.name} (${ctx.farm.location.state || ''}, ${ctx.farm.location.country})
@@ -275,12 +276,35 @@ FARMER QUESTION:
 
 INSTRUCTIONS:
 ${languageInstruction}
-Provide an expert, empathetic, actionable answer. If field verification or local Krishi Vigyan Kendra (KVK) consultation is appropriate, mention it. Never invent data not present in the context.`;
+Provide an expert, empathetic, actionable answer in 2 to 4 concise paragraphs. Focus on practical field advice, safe practices, and mention consulting the local Krishi Vigyan Kendra (KVK) if physical inspection is required. Only speak in natural human sentences.`;
 
   try {
-    const text = await generateText(prompt);
+    const raw = await generateText(prompt);
+    let cleanAnswer = raw.trim();
+
+    // If Gemini formatted response as a JSON markdown block, parse out summary or text
+    if (cleanAnswer.startsWith('```json') || cleanAnswer.startsWith('```')) {
+      try {
+        const jsonMatch = cleanAnswer.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[1]);
+          const mainSummary = parsed.summary_hi || parsed.summary_en || parsed.summary || parsed.answer || parsed.response;
+          if (mainSummary) {
+            let fullText = mainSummary;
+            if (Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0) {
+              fullText += '\n\n' + (preferredLanguage === 'hi' ? 'सलाह:' : 'Recommendations:') + '\n' +
+                parsed.recommendations.map((r: string) => `• ${r}`).join('\n');
+            }
+            cleanAnswer = fullText;
+          }
+        }
+      } catch {
+        // keep text as is
+      }
+    }
+
     return {
-      answer: text,
+      answer: cleanAnswer,
       evidence: [
         { source: 'crop_stage', finding: `${ctx.farm.crop} at ${ctx.farm.cropStage}` },
         ...(ctx.weather ? [{ source: 'weather' as const, finding: `${ctx.weather.current.temperature}°C, ${ctx.weather.current.humidity}% humidity` }] : []),

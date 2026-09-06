@@ -259,12 +259,12 @@ export default function VoiceAssistant({ ctx, isOpen, onClose }: VoiceAssistantP
         )}
 
         {/* Microphone Pulse Area */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '20px 0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '14px 0' }}>
           <button
             onClick={toggleListening}
             style={{
-              width: 84,
-              height: 84,
+              width: 80,
+              height: 80,
               borderRadius: '50%',
               border: 'none',
               background: isListening ? 'var(--agrios-red-500)' : 'var(--agrios-green-600)',
@@ -277,10 +277,67 @@ export default function VoiceAssistant({ ctx, isOpen, onClose }: VoiceAssistantP
               transition: 'all 0.2s',
             }}
           >
-            {isListening ? <MicOff size={36} /> : <Mic size={36} />}
+            {isListening ? <MicOff size={34} /> : <Mic size={34} />}
           </button>
-          <div style={{ marginTop: '14px', fontSize: '0.85rem', fontWeight: 600, color: isListening ? 'var(--agrios-red-600)' : 'var(--text-secondary)' }}>
-            {isListening ? (language === 'hi' ? 'सुन रहा हूँ... बोलिए' : 'Listening... Speak now') : (language === 'hi' ? 'माइक दबाएं और बोलें' : 'Tap mic and ask your question')}
+          <div style={{ marginTop: '10px', fontSize: '0.85rem', fontWeight: 600, color: isListening ? 'var(--agrios-red-600)' : 'var(--text-secondary)' }}>
+            {isListening ? (language === 'hi' ? 'सुन रहा हूँ... बोलिए' : 'Listening... Speak now') : (language === 'hi' ? 'माइक दबाएं और बोलें' : 'Tap mic to speak, or type below')}
+          </div>
+        </div>
+
+        {/* Quick Question Pills */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px', justifyContent: 'center' }}>
+          {(language === 'hi' ? [
+            'आज सिंचाई करनी चाहिए?',
+            'पीला रतुआ (रस्ट) कैसे रोकें?',
+            'जैविक खाद की मात्रा क्या रखें?',
+            'पीएम किसान योजना कैसे मिलेगी?',
+          ] : [
+            'Should I irrigate today?',
+            'How to prevent yellow rust?',
+            'Recommended organic compost dosage?',
+            'How to apply for PM-KISAN?',
+          ]).map((preset, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setTranscript(preset);
+                stopAudio();
+              }}
+              className="btn btn-outline btn-sm"
+              style={{ fontSize: '0.72rem', padding: '4px 10px', borderRadius: '16px', background: 'white' }}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+
+        {/* Editable Transcript / Text input */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder={language === 'hi' ? 'बोलें या यहाँ अपना प्रश्न लिखें...' : 'Speak or type your question here...'}
+              style={{
+                flex: 1,
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-default)',
+                fontSize: '0.88rem',
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAskQuestion();
+              }}
+            />
+            <button
+              onClick={handleAskQuestion}
+              disabled={isLoading || !transcript.trim()}
+              className="btn btn-primary btn-sm"
+              style={{ padding: '0 16px', whiteSpace: 'nowrap' }}
+            >
+              {isLoading ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : (language === 'hi' ? 'पूछें →' : 'Ask →')}
+            </button>
           </div>
         </div>
 
