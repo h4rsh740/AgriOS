@@ -9,8 +9,8 @@ import { DEMO_SATELLITE } from '@/lib/demo/demoData';
 const satCache = new Map<string, { data: SatelliteSnapshot; ts: number }>();
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
-export async function fetchNDVI(farmId: string): Promise<SatelliteSnapshot> {
-  const key = `${farmId}`;
+export async function fetchNDVI(farmId: string, lat?: number, lng?: number): Promise<SatelliteSnapshot> {
+  const key = lat !== undefined && lng !== undefined ? `${farmId}_${lat}_${lng}` : farmId;
   const cached = satCache.get(key);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
@@ -23,7 +23,7 @@ export async function fetchNDVI(farmId: string): Promise<SatelliteSnapshot> {
     // In production: fetch GEE OAuth token, call EE REST API
     // For MVP: use the GEE script endpoint or service account
     // If GEE credentials available, make REST call:
-    const geeResponse = await callGEEForNDVI();
+    const geeResponse = await callGEEForNDVI(lat, lng);
     if (geeResponse) {
       const snap: SatelliteSnapshot = {
         farmId,
@@ -48,7 +48,7 @@ export async function fetchNDVI(farmId: string): Promise<SatelliteSnapshot> {
   }
 }
 
-async function callGEEForNDVI(): Promise<{
+async function callGEEForNDVI(lat?: number, lng?: number): Promise<{
   ndvi: number; ndmi: number; trend: 'declining' | 'stable' | 'improving'; trendValue: number
 } | null> {
   const projectId = process.env.EARTH_ENGINE_PROJECT_ID;
@@ -88,6 +88,18 @@ async function callGEEForNDVI(): Promise<{
                   },
                 },
               },
+              ...(lat !== undefined && lng !== undefined ? {
+                geometry: {
+                  functionInvocationValue: {
+                    functionName: 'GeometryConstructors.Point',
+                    arguments: {
+                      coordinates: {
+                        constantValue: [lng, lat],
+                      },
+                    },
+                  },
+                },
+              } : {}),
             },
           },
         },

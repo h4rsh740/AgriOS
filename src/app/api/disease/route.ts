@@ -4,25 +4,38 @@ import { DiseaseAssessment } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const image = formData.get('image') as File | null;
-    const contextJson = formData.get('context') as string;
-    const farmContext = JSON.parse(contextJson || '{}');
-
     let imageBase64: string | null = null;
     let mimeType = 'image/jpeg';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let farmContext: any = {};
 
-    if (image) {
-      const buffer = Buffer.from(await image.arrayBuffer());
-      // Validate file type
-      if (!image.type.startsWith('image/')) {
-        return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      const image = formData.get('image') as File | null;
+      const contextJson = formData.get('context') as string;
+      farmContext = JSON.parse(contextJson || '{}');
+
+      if (image) {
+        const buffer = Buffer.from(await image.arrayBuffer());
+        if (!image.type.startsWith('image/')) {
+          return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
+        }
+        if (buffer.length > 5 * 1024 * 1024) {
+          return NextResponse.json({ error: 'Image must be under 5MB' }, { status: 400 });
+        }
+        imageBase64 = buffer.toString('base64');
+        mimeType = image.type;
       }
-      if (buffer.length > 5 * 1024 * 1024) {
-        return NextResponse.json({ error: 'Image must be under 5MB' }, { status: 400 });
+    } else {
+      // JSON payload support
+      const body = await request.json().catch(() => ({}));
+      farmContext = body.context || body.farmContext || body || {};
+      if (body.imageBase64) {
+        imageBase64 = body.imageBase64;
+        mimeType = body.mimeType || 'image/jpeg';
       }
-      imageBase64 = buffer.toString('base64');
-      mimeType = image.type;
     }
 
     const prompt = `${AGRI_SYSTEM_PROMPT}
@@ -63,12 +76,18 @@ Return this EXACT JSON:
 
 RULES: Be honest about uncertainty. If no image is provided, say so. Never recommend specific chemical dosages.`;
 
-    let responseText: string;
-    if (imageBase64) {
-      responseText = await analyzeImageWithContext(imageBase64, mimeType, prompt);
-    } else {
-      const { generateText } = await import('@/lib/ai/gemini');
-      responseText = await generateText(prompt);
+    let responseText = '';
+    try {
+      if (imageBase64) {
+        responseText = await analyzeImageWithContext(imageBase64, mimeType, prompt);
+      } else {
+        const { generateText } = await import('@/lib/ai/gemini');
+        // 12s timeout race to prevent browser hang on cold start
+        const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Gemini timeout')), 12000));
+        responseText = await Promise.race([generateText(prompt), timeoutPromise]);
+      }
+    } catch (aiErr) {
+      console.warn('[Disease API] Gemini inference timed out or failed, using structured context assessment:', aiErr);
     }
 
     // Parse JSON from response
@@ -81,7 +100,7 @@ RULES: Be honest about uncertainty. If no image is provided, say so. Never recom
       assessment = getDemoAssessment(farmContext);
     }
 
-    const uploadedImageUrl = (formData.get('imageUrl') as string | null) || farmContext.imageUrl;
+    const uploadedImageUrl = (farmContext.imageUrl as string | null) || (farmContext.cloudUrl as string | null);
     if (uploadedImageUrl) {
       assessment.imageUrl = uploadedImageUrl;
     }

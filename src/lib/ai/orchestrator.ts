@@ -257,19 +257,31 @@ Produce a valid JSON object matching this schema exactly:
 
 /** Agent: Interactive Farmer Advisor Q&A */
 export async function askFarmerAdvisor(ctx: FarmContext, question: string, preferredLanguage = 'en'): Promise<{ answer: string; evidence: AIEvidence[]; source: string }> {
-  const languageInstruction = preferredLanguage === 'hi'
-    ? 'Reply in clear, conversational, respectful Hindi (Devanagari script) with terms commonly understood by Indian farmers.'
-    : 'Reply in clear, practical English tailored for Indian agricultural contexts.';
+  try {
+    const languageInstruction = preferredLanguage === 'hi'
+      ? 'Reply in clear, conversational, respectful Hindi (Devanagari script) with terms commonly understood by Indian farmers.'
+      : 'Reply in clear, practical English tailored for Indian agricultural contexts.';
 
-  const prompt = `You are the AgriOS Agricultural Intelligence Advisor speaking directly to an Indian farmer.
+    const farmName = ctx?.farm?.name || 'Local Farm';
+    const farmState = ctx?.farm?.location?.state || '';
+    const farmCountry = ctx?.farm?.location?.country || 'India';
+    const cropName = ctx?.farm?.crop || 'Crops';
+    const cropStage = ctx?.farm?.cropStage || 'Active growth';
+    const soilInfo = ctx?.soil ? `pH ${ctx.soil.ph}, SOC ${ctx.soil.organicCarbon} g/kg` : 'Unknown';
+    const weatherInfo = ctx?.weather?.current
+      ? `${ctx.weather.current.temperature}°C, ${ctx.weather.current.humidity}% humidity, forecast ${ctx.weather.current.description}`
+      : 'Unknown';
+    const ndviInfo = ctx?.satellite?.ndvi ?? 'Unknown';
+
+    const prompt = `You are the AgriOS Agricultural Intelligence Advisor speaking directly to an Indian farmer.
 Reply in plain, natural, conversational text. DO NOT format your response as JSON or markdown code blocks.
 
 FARM CONTEXT:
-- Farm: ${ctx.farm.name} (${ctx.farm.location.state || ''}, ${ctx.farm.location.country})
-- Crop: ${ctx.farm.crop} (${ctx.farm.cropStage} stage)
-- Soil: ${ctx.soil ? `pH ${ctx.soil.ph}, SOC ${ctx.soil.organicCarbon} g/kg` : 'Unknown'}
-- Weather: ${ctx.weather ? `${ctx.weather.current.temperature}°C, ${ctx.weather.current.humidity}% humidity, forecast ${ctx.weather.current.description}` : 'Unknown'}
-- NDVI: ${ctx.satellite ? ctx.satellite.ndvi : 'Unknown'}
+- Farm: ${farmName} (${farmState}, ${farmCountry})
+- Crop: ${cropName} (${cropStage} stage)
+- Soil: ${soilInfo}
+- Weather: ${weatherInfo}
+- NDVI: ${ndviInfo}
 
 FARMER QUESTION:
 "${question}"
@@ -278,7 +290,6 @@ INSTRUCTIONS:
 ${languageInstruction}
 Provide an expert, empathetic, actionable answer in 2 to 4 concise paragraphs. Focus on practical field advice, safe practices, and mention consulting the local Krishi Vigyan Kendra (KVK) if physical inspection is required. Only speak in natural human sentences.`;
 
-  try {
     const raw = await generateText(prompt);
     let cleanAnswer = raw.trim();
 
@@ -306,8 +317,8 @@ Provide an expert, empathetic, actionable answer in 2 to 4 concise paragraphs. F
     return {
       answer: cleanAnswer,
       evidence: [
-        { source: 'crop_stage', finding: `${ctx.farm.crop} at ${ctx.farm.cropStage}` },
-        ...(ctx.weather ? [{ source: 'weather' as const, finding: `${ctx.weather.current.temperature}°C, ${ctx.weather.current.humidity}% humidity` }] : []),
+        { source: 'crop_stage', finding: `${cropName} at ${cropStage}` },
+        ...(ctx?.weather?.current ? [{ source: 'weather' as const, finding: `${ctx.weather.current.temperature}°C, ${ctx.weather.current.humidity}% humidity` }] : []),
       ],
       source: 'AgriOS Chief Intelligence Agent (Gemini)',
     };

@@ -4,10 +4,22 @@ import { Farm } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
-    const { farm, customParams } = await request.json() as { farm: Farm; customParams?: Record<string, unknown> };
-    if (!farm) return NextResponse.json({ error: 'farm is required' }, { status: 400 });
+    const body = await request.json().catch(() => ({}));
+    const farm: Farm = body.farm || {
+      id: body.farmId || 'default-farm',
+      name: body.farmName || 'General Farm',
+      ownerId: 'demo-user',
+      location: { latitude: 28.6139, longitude: 77.209, state: 'Punjab', country: 'India', district: 'Ludhiana' },
+      areaHa: body.areaHa || 2.5,
+      crop: body.crop || 'Wheat',
+      cropStage: 'vegetative',
+      irrigationType: 'drip',
+      farmingPractice: 'conventional',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-    const result = runSimulation(farm, customParams);
+    const result = runSimulation(farm, body.customParams);
     return NextResponse.json(result);
   } catch (err) {
     console.error('[Simulation API]', err);

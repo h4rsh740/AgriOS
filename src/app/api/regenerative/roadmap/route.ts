@@ -2,10 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateJSON, AGRI_SYSTEM_PROMPT } from '@/lib/ai/gemini';
 import { FarmContext, RegenerativeRoadmap } from '@/types';
 
+import { DEMO_FARM, DEMO_SOIL, DEMO_WEATHER, DEMO_SATELLITE } from '@/lib/demo/demoData';
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const farmId = searchParams.get('farmId') || 'demo-farm-001';
+    return NextResponse.json(getDemoRoadmap(farmId));
+  } catch (err) {
+    console.error('[Roadmap GET API]', err);
+    return NextResponse.json({ error: 'Roadmap generation unavailable' }, { status: 503 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const ctx: FarmContext = await request.json();
-    if (!ctx.farm) return NextResponse.json({ error: 'farm context required' }, { status: 400 });
+    const body = await request.json().catch(() => ({}));
+    const ctx: FarmContext = {
+      farm: body.farm || DEMO_FARM,
+      soil: body.soil !== undefined ? body.soil : DEMO_SOIL,
+      weather: body.weather !== undefined ? body.weather : DEMO_WEATHER,
+      satellite: body.satellite !== undefined ? body.satellite : DEMO_SATELLITE,
+      isDemo: true,
+    };
 
     const prompt = `${AGRI_SYSTEM_PROMPT}
 
