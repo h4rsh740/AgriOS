@@ -42,8 +42,12 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 }
 
 export async function signOutUser() {
-  const a = requireAuth();
-  await signOut(a);
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('agrios_demo_user');
+  }
+  if (auth && isFirebaseConfigured) {
+    await signOut(auth);
+  }
 }
 
 /** Returns an unsubscribe function. Returns noop if Firebase not configured. */

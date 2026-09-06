@@ -15,11 +15,31 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({ user: null, loading: true });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      const demoUserStored = localStorage.getItem('agrios_demo_user');
+      if (demoUserStored) {
+        try {
+          return JSON.parse(demoUserStored) as User;
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('agrios_demo_user')) {
+      return false;
+    }
+    return true;
+  });
 
   useEffect(() => {
     const unsub = onAuthChange((u) => {
+      // Don't overwrite if guest session is active
+      if (typeof window !== 'undefined' && localStorage.getItem('agrios_demo_user')) return;
       setUser(u);
       setLoading(false);
     });

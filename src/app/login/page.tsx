@@ -211,7 +211,30 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          {/* Instant 1-Click Judge Demo Preview Bypass */}
+          <div style={{ marginTop: '20px', borderTop: '1px dashed var(--border-default)', paddingTop: '16px', textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                const demoUser = {
+                  uid: 'demo-judge-farmer',
+                  email: 'judge@agrios.demo',
+                  displayName: 'Ramesh Kumar (Demo Farmer)',
+                  photoURL: null,
+                };
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('agrios_demo_user', JSON.stringify(demoUser));
+                  router.push('/dashboard');
+                }
+              }}
+              className="btn btn-outline"
+              style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--agrios-green-500)', color: 'var(--agrios-green-700)', fontSize: '0.84rem' }}
+            >
+              🌾 Explore Live as Guest / Judge Demo →
+            </button>
+          </div>
+
+          <p style={{ textAlign: 'center', marginTop: '18px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             By continuing you agree to AgriOS&apos;s data-sovereign approach. Your raw farm data never leaves your governed environment.
           </p>
         </div>
