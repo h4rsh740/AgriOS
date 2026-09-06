@@ -7,12 +7,13 @@ import { useRouter } from 'next/navigation';
 import {
   Leaf, LayoutDashboard, Satellite, CloudRain, Layers,
   Microscope, SlidersHorizontal, Repeat2, MapPin, Globe,
-  Settings, LogOut, ChevronRight, Bell
+  Settings, LogOut, ChevronRight, Bell, Sparkles
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/farm', icon: Layers, label: 'Farm Twin', group: 'farm' },
+  { href: '/farm/demo-farm-001/advisor', icon: Sparkles, label: 'AI Advisor Q&A' },
   { href: '/farm/demo-farm-001/weather', icon: CloudRain, label: 'Weather' },
   { href: '/farm/demo-farm-001/satellite', icon: Satellite, label: 'Satellite / NDVI' },
   { href: '/farm/demo-farm-001/disease', icon: Microscope, label: 'Disease Investigator' },
