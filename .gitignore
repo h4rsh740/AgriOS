@@ -51,3 +51,4 @@ venv/
 # Earth Engine credentials
 service-account*.json
 earth-engine-credentials.json
+.env*
