@@ -3,8 +3,9 @@
 // AgriOS — Voice Assistant Component
 // Bilingual Voice UI (Hindi / English) with STT & TTS
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, X, Sparkles, Loader2, Globe } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 import { FarmContext } from '@/types';
 
 // Web Speech API interface definitions
@@ -37,7 +38,7 @@ interface VoiceAssistantProps {
 }
 
 export default function VoiceAssistant({ ctx, isOpen, onClose }: VoiceAssistantProps) {
-  const [language, setLanguage] = useState<'hi' | 'en'>('hi');
+  const [language, setLanguage] = useLanguage();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
@@ -238,12 +239,12 @@ export default function VoiceAssistant({ ctx, isOpen, onClose }: VoiceAssistantP
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Language toggle */}
             <button
-              onClick={() => setLanguage(l => l === 'hi' ? 'en' : 'hi')}
+              onClick={() => setLanguage(language === 'hi' ? 'en' : 'hi')}
               className="btn btn-outline btn-sm"
               style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-              title="Change Language"
+              title={language === 'hi' ? 'Switch to English' : 'हिंदी में बदलें'}
             >
-              <Globe size={13} /> {language === 'hi' ? 'हिंदी' : 'English'}
+              <Globe size={13} /> {language === 'hi' ? 'Switch to English' : 'हिंदी'}
             </button>
             <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '6px' }}>
               <X size={18} />

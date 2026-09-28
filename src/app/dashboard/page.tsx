@@ -19,6 +19,7 @@ import { Farm, WeatherData, SatelliteSnapshot, RegenerativeScore, FarmAlert } fr
 import { MarketIntelligenceResponse } from '@/lib/services/agriculture/marketService';
 import { GovernmentScheme } from '@/lib/services/agriculture/schemeService';
 import VoiceAssistant from '@/components/voice/VoiceAssistant';
+import { useLanguage } from '@/hooks/useLanguage';
 
 function HealthCard({ icon: Icon, title, value, badge, badgeCls, href, color }: {
   icon: React.FC<{ size?: number; color?: string }>;
@@ -72,6 +73,7 @@ function AlertCard({ alert }: { alert: FarmAlert }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const [farms, setFarms] = useState<Farm[]>([DEMO_FARM]);
   const [activeFarmId, setActiveFarmId] = useState<string>(DEMO_FARM.id);
   const [weather, setWeather] = useState<WeatherData>(DEMO_WEATHER);
@@ -169,9 +171,9 @@ export default function DashboardPage() {
     void refreshFarmData();
   }, [activeFarm]);
 
-  const firstName = user?.displayName?.split(' ')[0] || 'Farmer';
+  const firstName = user?.displayName?.split(' ')[0] || t('app.farmer');
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? t('dashboard.good_morning') : hour < 17 ? t('dashboard.good_afternoon') : t('dashboard.good_evening');
 
   const satellite: SatelliteSnapshot = DEMO_SATELLITE;
   const score: RegenerativeScore = DEMO_REGENERATIVE_SCORE;
@@ -219,15 +221,15 @@ export default function DashboardPage() {
                 {loading && (
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--color-primary-600)', animation: 'pulse 1.5s infinite' }} />
-                    Syncing...
+                    {t('dashboard.syncing')}
                   </span>
                 )}
               </div>
 
               {activeFarm.id === DEMO_FARM.id ? (
-                <span className="badge badge-demo">Demo Benchmark</span>
+                <span className="badge badge-demo">{t('dashboard.demo_benchmark')}</span>
               ) : (
-                <span className="badge badge-green">Real Farm Twin</span>
+                <span className="badge badge-green">{t('dashboard.real_farm')}</span>
               )}
             </div>
           </div>
@@ -245,11 +247,11 @@ export default function DashboardPage() {
                 padding: '6px 14px',
               }}
             >
-              <Mic size={15} /> Speak to AI
+              <Mic size={15} /> {t('dashboard.speak_ai')}
             </button>
 
-            <Link href="/onboarding" className="btn btn-outline btn-sm">+ Add Farm</Link>
-            <Link href={`/farm/${activeFarm.id}`} className="btn btn-primary btn-sm">Open Twin Hub</Link>
+            <Link href="/onboarding" className="btn btn-outline btn-sm">{t('dashboard.add_farm')}</Link>
+            <Link href={`/farm/${activeFarm.id}`} className="btn btn-primary btn-sm">{t('dashboard.open_twin')}</Link>
           </div>
         </div>
 
@@ -261,17 +263,17 @@ export default function DashboardPage() {
         )}
 
         {/* Health Cards Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-          <HealthCard icon={Leaf} title="Crop Health" value={activeFarm.crop} badge={activeFarm.cropStage.replace('_', ' ')} badgeCls="badge-green" href={`/farm/${activeFarm.id}`} color="var(--agrios-green-500)" />
-          <HealthCard icon={CloudRain} title="Live Weather" value={`${weather.current.temperature}°C`} badge={weather.isDemo ? 'Demo Weather' : 'Open-Meteo Live'} badgeCls={weather.isDemo ? 'badge-amber' : 'badge-green'} href={`/farm/${activeFarm.id}/weather`} color="var(--agrios-sky-600)" />
-          <HealthCard icon={Layers} title="Soil Health" value="pH 7.8" badge="SoilGrids" badgeCls="badge-amber" href={`/farm/${activeFarm.id}/soil`} color="var(--agrios-soil-500)" />
-          <HealthCard icon={AlertTriangle} title="Disease Pressure" value={weather.risks.diseaseRisk} badge="Check Canopy" badgeCls={weather.risks.diseaseRisk === 'high' ? 'badge-red' : 'badge-amber'} href={`/farm/${activeFarm.id}/disease`} color="var(--agrios-amber-400)" />
-          <HealthCard icon={Satellite} title="NDVI Signal" value={satellite.ndvi.toFixed(2)} badge={satellite.status} badgeCls="badge-green" href={`/farm/${activeFarm.id}/satellite`} color="var(--agrios-sky-400)" />
-          <HealthCard icon={Repeat2} title="Regen Index" value={`${score.total}/100`} badge="Good" badgeCls="badge-green" href={`/farm/${activeFarm.id}/regenerative`} color="var(--agrios-green-400)" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+          <HealthCard icon={Leaf} title={t('dashboard.crop_health')} value={activeFarm.crop} badge={activeFarm.cropStage.replace('_', ' ')} badgeCls="badge-green" href={`/farm/${activeFarm.id}`} color="var(--agrios-green-500)" />
+          <HealthCard icon={CloudRain} title={t('dashboard.live_weather')} value={`${weather.current.temperature}°C`} badge={weather.isDemo ? 'Demo Weather' : 'Open-Meteo Live'} badgeCls={weather.isDemo ? 'badge-amber' : 'badge-green'} href={`/farm/${activeFarm.id}/weather`} color="var(--agrios-sky-600)" />
+          <HealthCard icon={Layers} title={t('dashboard.soil_health')} value="pH 7.8" badge="SoilGrids" badgeCls="badge-amber" href={`/farm/${activeFarm.id}/soil`} color="var(--agrios-soil-500)" />
+          <HealthCard icon={AlertTriangle} title={t('dashboard.disease_pressure')} value={weather.risks.diseaseRisk} badge={t('dashboard.check_canopy')} badgeCls={weather.risks.diseaseRisk === 'high' ? 'badge-red' : 'badge-amber'} href={`/farm/${activeFarm.id}/disease`} color="var(--agrios-amber-400)" />
+          <HealthCard icon={Satellite} title={t('dashboard.vegetation_signal')} value={satellite.ndvi.toFixed(2)} badge={satellite.status} badgeCls="badge-green" href={`/farm/${activeFarm.id}/satellite`} color="var(--agrios-sky-400)" />
+          <HealthCard icon={Repeat2} title={t('dashboard.regen_score')} value={`${score.total}/100`} badge={t('dashboard.healthy')} badgeCls="badge-green" href={`/farm/${activeFarm.id}/regenerative`} color="var(--agrios-green-400)" />
         </div>
 
-        {/* Main 3-Column Intelligence Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        {/* Main 3-Column Intelligence Grid (Responsive on Mobile) */}
+        <div className="dashboard-three-col">
           {/* AI Intelligence Brief */}
           <div className="card card-dark">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -290,7 +292,7 @@ export default function DashboardPage() {
 
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, textTransform: 'uppercase' }}>Evidence Confidence</span>
+                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, textTransform: 'uppercase' }}>{t('dashboard.confidence')}</span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--agrios-green-300)', fontWeight: 700 }}>82%</span>
               </div>
               <div className="confidence-bar">
@@ -314,7 +316,7 @@ export default function DashboardPage() {
             </div>
 
             <Link href={`/farm/${activeFarm.id}/advisor`} className="btn btn-outline btn-sm" style={{ borderColor: 'rgba(255,255,255,0.2)', color: 'var(--agrios-green-300)', width: '100%', justifyContent: 'center' }}>
-              Full AI Advisor Report <ChevronRight size={14} />
+              {t('dashboard.full_advisor')} <ChevronRight size={14} />
             </Link>
           </div>
 
@@ -323,7 +325,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShoppingBag size={16} color="var(--agrios-green-600)" />
-                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>Mandi Prices</span>
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>{t('dashboard.mandi_title')}</span>
               </div>
               {market?.isDemo ? (
                 <span className="badge badge-demo" style={{ fontSize: '0.65rem' }}>Benchmark</span>
@@ -333,7 +335,7 @@ export default function DashboardPage() {
             </div>
 
             <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Modal Price ({activeFarm.crop})</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('dashboard.modal_price')} ({activeFarm.crop})</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.7rem', fontWeight: 700, color: 'var(--agrios-green-700)' }}>
                   ₹{market?.averageModalPrice || 2310}
@@ -341,7 +343,7 @@ export default function DashboardPage() {
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>/ quintal</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--agrios-green-600)', fontSize: '0.78rem', marginTop: '2px', fontWeight: 600 }}>
-                <TrendingUp size={13} /> {market?.trendPercent ? `+${market.trendPercent}%` : '+1.8%'} weekly trend
+                <TrendingUp size={13} /> {market?.trendPercent ? `+${market.trendPercent}%` : '+1.8%'} {t('dashboard.weekly_trend')}
               </div>
             </div>
 
@@ -362,7 +364,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CloudRain size={16} color="var(--agrios-sky-600)" />
-                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>7-Day Forecast</span>
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>{t('dashboard.forecast_title')}</span>
               </div>
               <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>Open-Meteo</span>
             </div>
@@ -389,20 +391,20 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <Link href={`/farm/${activeFarm.id}/weather`} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center' }}>Detailed Forecast</Link>
+            <Link href={`/farm/${activeFarm.id}/weather`} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center' }}>{t('dashboard.forecast_link')}</Link>
           </div>
         </div>
 
-        {/* Bottom Row: Government Schemes + Today's Actions + Quick Links */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '16px' }}>
+        {/* Bottom Row: Government Schemes + Today's Actions + Quick Links (Responsive on Mobile) */}
+        <div className="dashboard-bottom-grid">
           {/* Government Schemes Matching Card */}
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Award size={16} color="var(--agrios-amber-400)" />
-                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>Government Schemes for You</span>
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>{t('dashboard.schemes_title')}</span>
               </div>
-              <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>Matched</span>
+              <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>{t('dashboard.schemes_matched')}</span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -410,7 +412,7 @@ export default function DashboardPage() {
                 <div key={s.id} style={{ padding: '10px 12px', background: 'var(--surface-muted)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--agrios-green-600)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{s.name}</span>
-                    <span className="badge badge-green" style={{ fontSize: '0.6rem' }}>Eligible</span>
+                    <span className="badge badge-green" style={{ fontSize: '0.6rem' }}>{t('dashboard.schemes_eligible')}</span>
                   </div>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 6px 0', lineHeight: 1.5 }}>{s.benefitSummary}</p>
                   <div style={{ fontSize: '0.72rem', color: 'var(--agrios-green-700)', fontWeight: 600 }}>
@@ -429,7 +431,7 @@ export default function DashboardPage() {
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <Check size={16} color="var(--agrios-green-500)" />
-              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>Recommended Actions</span>
+              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem' }}>{t('dashboard.actions_title')}</span>
             </div>
 
             {[
@@ -445,18 +447,18 @@ export default function DashboardPage() {
             ))}
 
             <Link href={`/farm/${activeFarm.id}/roadmap`} className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: '6px' }}>
-              90-Day Roadmap →
+              {t('dashboard.roadmap_btn')}
             </Link>
           </div>
 
           {/* Quick Access Tiles */}
           <div className="card">
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem', marginBottom: '16px' }}>Farm Modules</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '0.9rem', marginBottom: '16px' }}>{t('dashboard.modules_title')}</div>
             {[
-              { href: `/farm/${activeFarm.id}/disease`, icon: Microscope, label: 'Disease Investigator', color: 'var(--agrios-amber-400)', desc: 'Upload crop photo' },
-              { href: `/farm/${activeFarm.id}/simulate`, icon: SlidersHorizontal, label: 'What-If Simulator', color: 'var(--agrios-soil-500)', desc: 'Compare farming scenarios' },
-              { href: `/farm/${activeFarm.id}/soil`, icon: Layers, label: 'Soil Health Profile', color: 'var(--agrios-soil-700)', desc: 'ISRIC soil chemistry' },
-              { href: '/farm', icon: Leaf, label: 'All Farm Plots', color: 'var(--agrios-green-600)', desc: 'Switch or add farms' },
+              { href: `/farm/${activeFarm.id}/disease`, icon: Microscope, label: t('dashboard.module_disease'), color: 'var(--agrios-amber-400)', desc: t('dashboard.module_disease_desc') },
+              { href: `/farm/${activeFarm.id}/simulate`, icon: SlidersHorizontal, label: t('dashboard.module_simulate'), color: 'var(--agrios-soil-500)', desc: t('dashboard.module_simulate_desc') },
+              { href: `/farm/${activeFarm.id}/soil`, icon: Layers, label: t('dashboard.module_soil'), color: 'var(--agrios-soil-700)', desc: t('dashboard.module_soil_desc') },
+              { href: '/farm', icon: Leaf, label: t('dashboard.module_farms'), color: 'var(--agrios-green-600)', desc: t('dashboard.module_farms_desc') },
             ].map((item, i) => (
               <Link key={i} href={item.href} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', borderRadius: '8px', textDecoration: 'none', marginBottom: '4px', transition: 'background 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-muted)')}

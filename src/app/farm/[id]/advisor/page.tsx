@@ -4,6 +4,7 @@ import { useState, use } from 'react';
 import { Zap, Info, ChevronDown, ChevronUp, AlertTriangle, Check, Loader2, Database, Wifi, MessageSquare, Send, Globe, ShieldAlert } from 'lucide-react';
 import { AIRecommendation, AIEvidence } from '@/types';
 import { useFarmContext } from '@/hooks/useFarmContext';
+import { useLanguage } from '@/hooks/useLanguage';
 import { DEMO_RECOMMENDATION } from '@/lib/demo/demoData';
 
 export default function AdvisorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +19,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
   const [question, setQuestion] = useState('');
   const [answering, setAnswering] = useState(false);
   const [qnaAnswer, setQnaAnswer] = useState<{ answer: string; evidence: AIEvidence[]; source: string } | null>(null);
-  const [lang, setLang] = useState<'en' | 'hi'>('en');
+  const { language: lang, setLanguage: setLang, t } = useLanguage();
 
   async function handleAsk(queryText?: string) {
     const q = (queryText || question).trim();
@@ -77,8 +78,8 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
             <Zap size={22} color="var(--agrios-green-500)" />
             <h2 style={{ margin: 0 }}>AI Agricultural Advisor</h2>
             {isLive
-              ? <span className="badge" style={{ background: 'var(--agrios-green-100)', color: 'var(--agrios-green-700)', fontSize: '0.7rem' }}><Wifi size={10} /> Live</span>
-              : <span className="badge badge-demo"><Database size={10} /> Demo</span>
+              ? <span className="badge" style={{ background: 'var(--agrios-green-100)', color: 'var(--agrios-green-700)', fontSize: '0.7rem' }}><Wifi size={10} /> {t('advisor.live')}</span>
+              : <span className="badge badge-demo"><Database size={10} /> {t('advisor.demo')}</span>
             }
           </div>
           <button
@@ -88,10 +89,10 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
             title={!ctx ? 'Loading farm context…' : 'Analyze with Gemini AI'}
           >
             {ctxLoading
-              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading context…</>
+              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> {t('advisor.loading_ctx')}</>
               : loading
-              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Analyzing with Gemini…</>
-              : '⚡ Analyze with Gemini AI'}
+              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> {t('advisor.analyzing')}</>
+              : t('advisor.analyze_btn')}
           </button>
         </div>
         <p style={{ color: 'var(--text-muted)', marginBottom: '28px', fontSize: '0.875rem' }}>
@@ -106,7 +107,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <MessageSquare size={17} color="var(--agrios-green-600)" />
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Ask Chief Agricultural Agent</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{t('advisor.ask_agent')}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Globe size={13} color="var(--text-muted)" />
@@ -124,9 +125,9 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
               {/* Quick suggestion pills from PDF Demo */}
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
                 {[
-                  'What should I do today and why?',
-                  'Should I irrigate given the 3-day rainfall forecast?',
-                  'What foliar diseases should I inspect for?',
+                  t('advisor.q1'),
+                  t('advisor.q2'),
+                  t('advisor.q3'),
                 ].map((q, idx) => (
                   <button
                     key={idx}
@@ -150,7 +151,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
                   type="text"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask anything about your crop, irrigation, weather, or soil..."
+                  placeholder={t('advisor.ask_placeholder')}
                   disabled={answering || !ctx}
                   style={{
                     flex: 1,
@@ -166,7 +167,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
                   className="btn btn-primary btn-sm"
                   style={{ gap: '6px', minWidth: '85px', justifyContent: 'center' }}
                 >
-                  {answering ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <><Send size={13} /> Ask</>}
+                  {answering ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <><Send size={13} /> {t('advisor.ask_btn')}</>}
                 </button>
               </form>
 
@@ -182,7 +183,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
                 return (
                   <div style={{ marginTop: '16px', padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--agrios-green-50)', border: '1px solid var(--agrios-green-200)', animation: 'fadeIn 0.3s ease' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--agrios-green-800)', textTransform: 'uppercase' }}>Gemini Agent Response</span>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--agrios-green-800)', textTransform: 'uppercase' }}>{t('advisor.gemini_response')}</span>
                       <span className="badge badge-green" style={{ fontSize: '0.62rem' }}>{qnaAnswer.source}</span>
                     </div>
                     <p style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-primary)', margin: '0 0 10px 0' }}>
@@ -219,7 +220,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
               {/* Confidence */}
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Confidence</span>
+                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('advisor.ai_confidence')}</span>
                   <span style={{ fontSize: '0.85rem', color: 'var(--agrios-green-300)', fontWeight: 700 }}>{rec.confidence}%</span>
                 </div>
                 <div style={{ height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -229,7 +230,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
 
               {/* Observations */}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Key Observations</div>
+                <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>{t('advisor.key_obs')}</div>
                 {rec.observations.map((obs, i) => (
                   <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                     <div className="dot dot-green" style={{ marginTop: '5px', flexShrink: 0 }} />
@@ -245,7 +246,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
                 onClick={() => setShowEvidence(!showEvidence)}
                 style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0 }}
               >
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Evidence Trail ({rec.evidence.length} sources)</span>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{t('advisor.evidence_trail')} ({rec.evidence.length} {t('advisor.sources')})</span>
                 {showEvidence ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
 
@@ -269,7 +270,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
 
             {/* Recommendations */}
             <div className="card" style={{ marginBottom: '16px' }}>
-              <h4 style={{ marginBottom: '14px' }}>Recommendations</h4>
+              <h4 style={{ marginBottom: '14px' }}>{t('advisor.recommendations')}</h4>
               {rec.recommendations.map((r, i) => (
                 <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                   <div style={{ width: 22, height: 22, background: 'var(--agrios-green-100)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -290,10 +291,10 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <ShieldAlert size={16} color="#dc2626" />
                     <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      Telemetry Dispute Detected ({rec.contradictions.length})
+                      {t('advisor.telemetry_dispute')} ({rec.contradictions.length})
                     </span>
                   </div>
-                  <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Confidence Penalized</span>
+                  <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>{t('advisor.confidence_penalized')}</span>
                 </div>
                 {rec.contradictions.map((c, i) => (
                   <div key={i} style={{ marginBottom: i < (rec.contradictions?.length ?? 0) - 1 ? '10px' : '0', padding: '10px', background: 'white', borderRadius: 'var(--radius-sm)', border: '1px solid #fecaca' }}>
@@ -316,7 +317,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
               <div style={{ background: 'var(--agrios-amber-100)', border: '1px solid var(--agrios-amber-400)', borderRadius: 'var(--radius-md)', padding: '14px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
                   <AlertTriangle size={15} color="#92400e" />
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Warnings</span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('advisor.warnings')}</span>
                 </div>
                 {rec.warnings.map((w, i) => <div key={i} style={{ fontSize: '0.82rem', color: '#78350f', marginBottom: '4px' }}>• {w}</div>)}
               </div>
@@ -324,6 +325,12 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
 
             {/* Actions grouped by urgency */}
             {['today', 'this_week', 'this_month'].map(urgency => {
+              const urgencyLabels: Record<string, string> = {
+                today: t('advisor.urgency_today'),
+                this_week: t('advisor.urgency_week'),
+                this_month: t('advisor.urgency_month'),
+                immediate: t('advisor.urgency_today'),
+              };
               const actions = [
                 ...rec.actionsToday.filter(a => a.urgency === urgency || (urgency === 'today' && a.urgency === 'immediate')),
                 ...rec.actionsThisWeek.filter(a => a.urgency === urgency),
@@ -334,7 +341,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
                 <div key={urgency} className="card" style={{ marginBottom: '14px' }}>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem', fontFamily: 'var(--font-heading)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className={`dot ${urgency === 'today' ? 'dot-red' : urgency === 'this_week' ? 'dot-amber' : 'dot-green'}`} />
-                    {urgencyLabel[urgency]}
+                    {urgencyLabels[urgency]}
                   </div>
                   {actions.map((action, i) => (
                     <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px', padding: '10px', background: 'var(--surface-muted)', borderRadius: 'var(--radius-md)' }}>
@@ -352,7 +359,7 @@ export default function AdvisorPage({ params }: { params: Promise<{ id: string }
             {rec.needsFieldVerification && (
               <div style={{ display: 'flex', gap: '8px', padding: '12px', background: 'var(--agrios-green-50)', border: '1px solid var(--agrios-green-200)', borderRadius: 'var(--radius-md)' }}>
                 <AlertTriangle size={14} color="var(--agrios-green-700)" />
-                <span style={{ fontSize: '0.78rem', color: 'var(--agrios-green-700)', lineHeight: 1.6 }}>Field verification recommended before implementing major changes.</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--agrios-green-700)', lineHeight: 1.6 }}>{t('advisor.field_verify')}</span>
               </div>
             )}
           </div>

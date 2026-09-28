@@ -2,18 +2,33 @@
 import Sidebar from './Sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, Menu, Leaf, Globe } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const { language, setLanguage, toggleLanguage, t } = useLanguage();
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // Prevent background scrolling when mobile nav is open
+  useEffect(() => {
+    if (isMobileNavOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileNavOpen]);
 
   if (loading) {
     return (
@@ -30,7 +45,55 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      {/* Mobile Top App Bar (< 768px) */}
+      <header className="mobile-header">
+        <button
+          onClick={() => setIsMobileNavOpen(true)}
+          className="mobile-hamburger-btn"
+          aria-label="Open Navigation Menu"
+        >
+          <Menu size={22} color="white" />
+        </button>
+
+        <div className="mobile-brand">
+          <div className="mobile-brand-icon">
+            <Leaf size={16} color="white" />
+          </div>
+          <span className="mobile-brand-title">AgriOS</span>
+        </div>
+
+        {/* Quick Language Toggle on Mobile */}
+        <div className="mobile-actions">
+          <button
+            onClick={toggleLanguage}
+            className="mobile-lang-btn"
+            title={language === 'hi' ? 'Switch to English' : 'हिंदी में बदलें'}
+          >
+            <Globe size={13} />
+            <span>{language === 'hi' ? 'English' : 'हिंदी'}</span>
+          </button>
+
+          <div className="mobile-avatar">
+            {user?.displayName?.[0] || user?.email?.[0] || 'F'}
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Backdrop Overlay */}
+      {isMobileNavOpen && (
+        <div
+          className="mobile-backdrop"
+          onClick={() => setIsMobileNavOpen(false)}
+        />
+      )}
+
+      {/* Sidebar (Desktop + Mobile Slide-over Drawer) */}
+      <Sidebar
+        isOpen={isMobileNavOpen}
+        onClose={() => setIsMobileNavOpen(false)}
+      />
+
+      {/* Main Content Area */}
       <main className="main-area">
         {children}
       </main>

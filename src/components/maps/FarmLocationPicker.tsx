@@ -33,6 +33,7 @@ export default function FarmLocationPicker({ value, onChange, idPrefix = 'flp' }
   const [activeTab, setActiveTab] = useState<'pin' | 'boundary'>('pin');
   const [newVertexLat, setNewVertexLat] = useState('');
   const [newVertexLng, setNewVertexLng] = useState('');
+  const [detectingLocation, setDetectingLocation] = useState(false);
 
   const valid = isValidLatLng(value.lat, value.lng);
   const embedUrl = valid ? buildMapsEmbedUrl(value.lat, value.lng) : buildMapsEmbedUrl(26.85, 80.95);
@@ -93,6 +94,66 @@ export default function FarmLocationPicker({ value, onChange, idPrefix = 'flp' }
   function handleCoord(coord: 'lat' | 'lng', raw: string) {
     const num = parseFloat(raw);
     onChange({ ...value, [coord]: Number.isNaN(num) ? 0 : num });
+  }
+
+  // Auto-detect device location via browser Geolocation + OSM Nominatim reverse geocode
+  async function detectLocation() {
+    if (!navigator.geolocation) {
+      setBanner('Geolocation is not supported by your browser.');
+      return;
+    }
+    setDetectingLocation(true);
+    setBanner('');
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = parseFloat(position.coords.latitude.toFixed(6));
+        const lng = parseFloat(position.coords.longitude.toFixed(6));
+        try {
+          // Free OSM Nominatim reverse geocode — no API key required
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+            { headers: { 'Accept-Language': 'en', 'User-Agent': 'AgriOS/1.0' } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address || {};
+            const state =
+              addr.state ||
+              addr.state_district ||
+              addr.county ||
+              '';
+            const country = addr.country || 'India';
+            const address =
+              [addr.village, addr.suburb, addr.city, addr.town, addr.district]
+                .filter(Boolean)
+                .join(', ') || data.display_name?.split(',').slice(0, 2).join(',').trim() || '';
+            onChange({ ...value, lat, lng, address, state, country });
+            setBanner(`📍 Location detected: ${address ? address + ', ' : ''}${state}, ${country}`);
+          } else {
+            // Nominatim failed but we still got coordinates
+            onChange({ ...value, lat, lng });
+            setBanner(`📍 Location detected: (${lat.toFixed(4)}, ${lng.toFixed(4)}) — address lookup failed.`);
+          }
+        } catch {
+          // Network error — still use raw coordinates
+          onChange({ ...value, lat, lng });
+          setBanner(`📍 Location set: (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      (err) => {
+        setDetectingLocation(false);
+        if (err.code === 1) {
+          setBanner('Location access denied. Please allow location in your browser settings.');
+        } else if (err.code === 2) {
+          setBanner('Could not determine your location. Check your GPS signal.');
+        } else {
+          setBanner('Location detection timed out. Please enter coordinates manually.');
+        }
+      },
+      { timeout: 12000, enableHighAccuracy: true }
+    );
   }
 
   // --- Boundary Polygon Helpers ---
@@ -284,7 +345,7 @@ export default function FarmLocationPicker({ value, onChange, idPrefix = 'flp' }
           </div>
 
           {/* Manual coordinates + demo quick-set */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: '12px', alignItems: 'end' }}>
             <div>
               <label className="label" htmlFor={`${idPrefix}-lat`}>Latitude</label>
               <input
@@ -315,7 +376,24 @@ export default function FarmLocationPicker({ value, onChange, idPrefix = 'flp' }
               />
             </div>
             <button type="button" className="btn btn-ghost btn-sm" onClick={setDemoLocation} style={{ whiteSpace: 'normal', lineHeight: 1.3 }}>
-              <LocateFixed size={14} /> Use demo location
+              <LocateFixed size={14} /> Demo
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={detectLocation}
+              disabled={detectingLocation}
+              title="Auto-detect your farm location using device GPS"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {detectingLocation ? (
+                <>
+                  <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  Detecting...
+                </>
+              ) : (
+                <><LocateFixed size={14} /> Detect My Location</>
+              )}
             </button>
           </div>
           <div id={`${idPrefix}-coord-hint`} style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '6px' }}>

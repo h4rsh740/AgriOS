@@ -3,6 +3,7 @@ import AppShell from '@/components/layout/AppShell';
 import { useEffect, useState } from 'react';
 import { Globe, Zap, Users, Share2, Info, RefreshCw, Plus, X, CheckCircle, Sparkles } from 'lucide-react';
 import { DEMO_AGRIMESH_NODES } from '@/lib/demo/demoData';
+import { useLanguage } from '@/hooks/useLanguage';
 
 type NodeStatus = 'active' | 'syncing' | 'offline';
 type ContribType = 'disease_pattern' | 'practice' | 'crop_model' | 'climate_insight';
@@ -60,6 +61,7 @@ function NodeCard({ node, selected, onSelect }: {
   selected: boolean;
   onSelect: (n: AgriMeshNode) => void;
 }) {
+  const { t } = useLanguage();
   // Keep "time since" labels fresh without calling Date.now() during render.
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -98,11 +100,11 @@ function NodeCard({ node, selected, onSelect }: {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1.1rem', color: STATUS_COLOR[node.status] }}>{node.contributionsCount}</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Contributions</div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{t('agrimesh.contributions')}</div>
         </div>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{timeSince(node.lastSync)}</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Last Sync</div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{t('agrimesh.last_sync')}</div>
         </div>
       </div>
 
@@ -117,6 +119,7 @@ function NodeCard({ node, selected, onSelect }: {
 }
 
 export default function AgriMeshPage() {
+  const { t } = useLanguage();
   const [nodes, setNodes] = useState<AgriMeshNode[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -175,11 +178,11 @@ export default function AgriMeshPage() {
   function handleShareSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || title.trim().length < 4) {
-      setFormError('Please provide a descriptive title (at least 4 characters).');
+      setFormError(t('agrimesh.err_title'));
       return;
     }
     if (!description.trim() || description.trim().length < 15) {
-      setFormError('Please describe the agronomic technique or observation (at least 15 characters).');
+      setFormError(t('agrimesh.err_desc'));
       return;
     }
 
@@ -257,12 +260,12 @@ export default function AgriMeshPage() {
               onClick={() => setShowModal(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <Plus size={15} /> Share a Practice
+              <Plus size={15} /> {t('agrimesh.share_btn')}
             </button>
-            <span className="badge badge-demo">Simulated for Demo</span>
+            <span className="badge badge-demo">{t('agrimesh.simulated')}</span>
             <span className="badge badge-green">
               <div className="dot dot-green dot-pulse" />
-              {activeNodes}/{nodes.length} Active
+              {activeNodes}/{nodes.length} {t('agrimesh.active')}
             </span>
           </div>
         </div>
@@ -300,10 +303,10 @@ export default function AgriMeshPage() {
         {/* Stats bar */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
           {[
-            { icon: Globe, label: 'BRICS Nodes', value: String(nodes.length), color: 'var(--agrios-sky-600)' },
-            { icon: Zap, label: 'Active', value: String(activeNodes), color: 'var(--agrios-green-500)' },
-            { icon: Share2, label: 'Total Contributions', value: String(totalContribs), color: 'var(--agrios-soil-500)' },
-            { icon: Users, label: 'Cooperative Model', value: 'Federated', color: 'var(--agrios-sky-400)' },
+                      { icon: Globe, label: t('agrimesh.nodes'), value: String(nodes.length), color: 'var(--agrios-sky-600)' },
+            { icon: Zap, label: t('agrimesh.active'), value: String(activeNodes), color: 'var(--agrios-green-500)' },
+            { icon: Share2, label: t('agrimesh.total_contrib'), value: String(totalContribs), color: 'var(--agrios-soil-500)' },
+            { icon: Users, label: t('agrimesh.coop_model'), value: t('agrimesh.federated'), color: 'var(--agrios-sky-400)' },
           ].map((stat, i) => (
             <div key={i} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: 40, height: 40, background: `${stat.color}18`, borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -320,7 +323,7 @@ export default function AgriMeshPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '20px' }}>
           {/* Node list */}
           <div>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px' }}>Network Nodes</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px' }}>{t('agrimesh.network_nodes')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {nodes.map(node => (
                 <NodeCard key={node.id} node={node} selected={selected?.id === node.id} onSelect={setSelected} />
@@ -357,7 +360,7 @@ export default function AgriMeshPage() {
                   ))}
                 </div>
 
-                <h4 style={{ marginBottom: '14px' }}>Recent Contributions</h4>
+                <h4 style={{ marginBottom: '14px' }}>{t('agrimesh.recent_contrib')}</h4>
                 {selected.contributions.map((contrib, i) => (
                   <div key={i} style={{ padding: '14px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', marginBottom: '10px', background: 'var(--surface-muted)' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -383,11 +386,11 @@ export default function AgriMeshPage() {
             <div className="card card-dark">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                 <RefreshCw size={14} color="var(--agrios-green-300)" style={{ animation: 'spin 3s linear infinite' }} />
-                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'white', fontSize: '0.9rem' }}>Live AgriMesh Feed</span>
-                <span className="badge badge-dark" style={{ marginLeft: 'auto' }}>Simulated</span>
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'white', fontSize: '0.9rem' }}>{t('agrimesh.live_feed')}</span>
+                <span className="badge badge-dark" style={{ marginLeft: 'auto' }}>{t('agrimesh.simulated_tag')}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
-                {liveLog.length === 0 && <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.82rem' }}>Connecting to AgriMesh network...</div>}
+                {liveLog.length === 0 && <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.82rem' }}>{t('agrimesh.connecting')}</div>}
                 {liveLog.map((msg, i) => (
                   <div key={i} style={{ fontSize: '0.8rem', color: i === 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)', padding: '8px', borderRadius: '6px', background: i === 0 ? 'rgba(45,155,90,0.15)' : 'transparent', borderLeft: i === 0 ? '2px solid var(--agrios-green-400)' : '2px solid transparent', transition: 'all 0.3s', lineHeight: 1.5 }}>
                     {msg}
@@ -400,7 +403,7 @@ export default function AgriMeshPage() {
 
         {/* Architecture note */}
         <div className="card" style={{ marginTop: '24px', background: 'var(--agrios-green-50)', border: '1px solid var(--agrios-green-100)' }}>
-          <h4 style={{ marginBottom: '12px' }}>AgriMesh Architecture — Federated Intelligence</h4>
+          <h4 style={{ marginBottom: '12px' }}>{t('agrimesh.arch_title')}</h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             {[
               { title: 'Data Sovereignty', desc: 'Raw farm data never leaves your national node. Only anonymized, aggregated insights are shared across the network.' },
@@ -418,7 +421,7 @@ export default function AgriMeshPage() {
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px', alignItems: 'center' }}>
           <Info size={12} color="var(--text-muted)" />
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>All AgriMesh nodes are simulated for demonstration purposes. The actual network would require bilateral agreements between participating nations.</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('agrimesh.disclaimer')}</span>
         </div>
 
         {/* Share Practice Modal */}
@@ -452,7 +455,7 @@ export default function AgriMeshPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Sparkles size={18} color="var(--agrios-green-600)" />
-                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Share Practice to AgriMesh</h3>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('agrimesh.modal_title')}</h3>
                 </div>
                 <button
                   type="button"
@@ -465,7 +468,7 @@ export default function AgriMeshPage() {
               </div>
 
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
-                Broadcast sovereign agronomic insights, disease patterns, or microclimate adaptations to the federated BRICS knowledge network.
+                {t('agrimesh.modal_subtitle')}
               </p>
 
               {formError && (
@@ -476,25 +479,25 @@ export default function AgriMeshPage() {
 
               <form onSubmit={handleShareSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                  <label className="label" style={{ fontSize: '0.75rem' }}>Intelligence Category</label>
+                  <label className="label" style={{ fontSize: '0.75rem' }}>{t('agrimesh.cat_label')}</label>
                   <select
                     className="input"
                     value={category}
                     onChange={(e) => setCategory(e.target.value as ContribType)}
                   >
-                    <option value="practice">Agronomic Practice / Innovation</option>
-                    <option value="disease_pattern">Early Disease / Pest Pattern</option>
-                    <option value="climate_insight">Microclimate & Drought Resilience</option>
-                    <option value="crop_model">Crop Phenology & Yield Heuristic</option>
+                    <option value="practice">{t('agrimesh.cat_practice')}</option>
+                    <option value="disease_pattern">{t('agrimesh.cat_disease')}</option>
+                    <option value="climate_insight">{t('agrimesh.cat_climate')}</option>
+                    <option value="crop_model">{t('agrimesh.cat_crop')}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="label" style={{ fontSize: '0.75rem' }}>Practice Title</label>
+                  <label className="label" style={{ fontSize: '0.75rem' }}>{t('agrimesh.title_label')}</label>
                   <input
                     type="text"
                     className="input"
-                    placeholder="e.g. Biochar furrow amendment for moisture retention"
+                    placeholder={t('agrimesh.title_placeholder')}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     required
@@ -503,21 +506,21 @@ export default function AgriMeshPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label className="label" style={{ fontSize: '0.75rem' }}>Crop / Commodity</label>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>{t('agrimesh.crop_label')}</label>
                     <input
                       type="text"
                       className="input"
-                      placeholder="e.g. Wheat, Rice, Mustard"
+                      placeholder={t('agrimesh.crop_placeholder')}
                       value={crop}
                       onChange={(e) => setCrop(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="label" style={{ fontSize: '0.75rem' }}>Agro-Climatic Region</label>
+                    <label className="label" style={{ fontSize: '0.75rem' }}>{t('agrimesh.region_label')}</label>
                     <input
                       type="text"
                       className="input"
-                      placeholder="e.g. Uttar Pradesh (Central)"
+                      placeholder={t('agrimesh.region_placeholder')}
                       value={region}
                       onChange={(e) => setRegion(e.target.value)}
                     />
@@ -525,11 +528,11 @@ export default function AgriMeshPage() {
                 </div>
 
                 <div>
-                  <label className="label" style={{ fontSize: '0.75rem' }}>Detailed Agronomic Insight</label>
+                  <label className="label" style={{ fontSize: '0.75rem' }}>{t('agrimesh.desc_label')}</label>
                   <textarea
                     className="input"
                     rows={4}
-                    placeholder="Explain the step-by-step technique, soil condition, or observed outcome..."
+                    placeholder={t('agrimesh.desc_placeholder')}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     required
@@ -542,13 +545,13 @@ export default function AgriMeshPage() {
                     className="btn btn-ghost btn-sm"
                     onClick={() => setShowModal(false)}
                   >
-                    Cancel
+                    {t('agrimesh.cancel')}
                   </button>
                   <button
                     type="submit"
                     className="btn btn-primary btn-sm"
                   >
-                    Broadcast to Network
+                    {t('agrimesh.broadcast')}
                   </button>
                 </div>
               </form>
